@@ -8,8 +8,8 @@ import (
 	"time"
 
 	"github.com/supergiant/robot"
-	"github.com/supergiant/robot/builtin/plugins/underutilizednodes"
 	"github.com/supergiant/robot/builtin/plugins/requestslimitscheck"
+	"github.com/supergiant/robot/builtin/plugins/underutilizednodes"
 	"github.com/supergiant/robot/pkg/api"
 	"github.com/supergiant/robot/pkg/api/handlers"
 	"github.com/supergiant/robot/pkg/api/operations"
@@ -154,11 +154,11 @@ func runCommand(cmd *cobra.Command, _ []string) error {
 						ID:          action.ActionId,
 					})
 				}
-				currentTime := time.Now()
+				var currentTime = time.Now()
 				checkResult := models.CheckResult{
 					CheckStatus:     r.GetStatus().String(),
 					CompletedAt:     currentTime.String(),
-					Description:     r.GetDescription(),
+					Description:     string(r.GetDescription().Value),
 					ExecutionStatus: r.GetExecutionStatus(),
 					ID:              r.GetName(),
 					Name:            r.GetName(),

@@ -1,9 +1,15 @@
 package requestslimitscheck
 
 import (
+	"encoding/json"
+
+	"k8s.io/apimachinery/pkg/fields"
+
+	"github.com/golang/protobuf/ptypes/any"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
 	"k8s.io/api/core/v1"
+	corev1api "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
@@ -15,10 +21,42 @@ type resourceRequirementsPlugin struct {
 	config *proto.PluginConfig
 }
 
+// TODO: this addition is till MVP, need to think and redesign while pluggability implementation
+type checkResponse struct {
+	description string
+	Nodes       []nodeResourceRequirements
+}
+
+type nodeResourceRequirements struct {
+	NodeName string
+	Pods     []podResourceRequirements
+}
+
+type podResourceRequirements struct {
+	PodName    string
+	Containers []containerResourceRequirements
+}
+
+type containerResourceRequirements struct {
+	ContainerName  string
+	ContainerImage string
+	Requests       struct {
+		RAM string
+		CPU string
+	}
+	Limits struct {
+		RAM string
+		CPU string
+	}
+}
+
+const isNotSetStatus = "Is Not Set."
+
 func NewPlugin() proto.PluginClient {
 	return &resourceRequirementsPlugin{}
 }
 
+//TODO: wrap errors with meaningful messages
 func (u *resourceRequirementsPlugin) Check(ctx context.Context, in *proto.CheckRequest, opts ...grpc.CallOption) (*proto.CheckResponse, error) {
 	// creates the in-cluster config
 	config, err := rest.InClusterConfig()
@@ -35,7 +73,10 @@ func (u *resourceRequirementsPlugin) Check(ctx context.Context, in *proto.CheckR
 		ExecutionStatus: "OK",
 		Status:          proto.CheckStatus_UNKNOWN_CHECK_STATUS,
 		Name:            "Resources (CPU/RAM) requests and limits Check",
-		Description:     "Resources (CPU/RAM) requests and limits where checked on nodes of k8s cluster. Results: \n",
+		Description: &any.Any{
+			TypeUrl: "io.supergiant.analyze.plugin.requestslimitscheck",
+			Value:   nil,
+		},
 		Actions: []*proto.Action{
 			&proto.Action{
 				ActionId:    "1",
@@ -54,9 +95,21 @@ func (u *resourceRequirementsPlugin) Check(ctx context.Context, in *proto.CheckR
 
 		return &proto.CheckResponse{Result: result}, nil
 	}
+
+	var descriptionValue = &checkResponse{
+		description: "Resources (CPU/RAM) requests and limits where checked on nodes of k8s cluster.",
+		Nodes:       make([]nodeResourceRequirements, len(nodes.Items)),
+	}
+
 	for _, node := range nodes.Items {
+
+		fieldSelector, err := fields.ParseSelector("spec.nodeName=" + node.Name + ",status.phase!=" + string(corev1api.PodSucceeded) + ",status.phase!=" + string(corev1api.PodFailed))
+		if err != nil {
+			return nil, err
+		}
+
 		pods, err := clientSet.CoreV1().Pods("").List(metav1.ListOptions{
-			FieldSelector: "spec.nodeName=" + node.Name,
+			FieldSelector: fieldSelector.String(),
 		})
 		if err != nil {
 			if err != nil {
@@ -65,16 +118,34 @@ func (u *resourceRequirementsPlugin) Check(ctx context.Context, in *proto.CheckR
 				return &proto.CheckResponse{Result: result}, nil
 			}
 		}
+		var nodeDesc = nodeResourceRequirements{
+			NodeName: node.Name,
+			Pods:     make([]podResourceRequirements, len(pods.Items)),
+		}
 
 		for _, pod := range pods.Items {
-			result.Description += " PodName: " + pod.Name
+			var podDescription = podResourceRequirements{
+				PodName:    pod.Name,
+				Containers: make([]containerResourceRequirements, len(pod.Spec.Containers)),
+			}
+
 			for _, container := range pod.Spec.Containers {
-				description, status := describeResourceRequirements(container)
-				result.Description += description
+				resourceRequirementDescription, status := describeResourceRequirements(container)
+				podDescription.Containers = append(podDescription.Containers, resourceRequirementDescription)
 				setHigher(result, status)
 			}
+			nodeDesc.Pods = append(nodeDesc.Pods, podDescription)
 		}
+
+		descriptionValue.Nodes = append(descriptionValue.Nodes, nodeDesc)
 	}
+
+	bytes, err := json.Marshal(descriptionValue)
+	if err != nil {
+		return nil, err
+	}
+
+	result.Description.Value = bytes
 
 	return &proto.CheckResponse{Result: result}, nil
 }
@@ -108,37 +179,39 @@ func setHigher(ch *proto.CheckResult, status proto.CheckStatus) {
 	}
 }
 
-func describeResourceRequirements(container v1.Container) (string, proto.CheckStatus) {
-	var resultDescription = " ContainerName: " + container.Name
+func describeResourceRequirements(container v1.Container) (containerResourceRequirements, proto.CheckStatus) {
+	var result = containerResourceRequirements{}
+	result.ContainerName = container.Name
+	result.ContainerImage = container.Image
 	var resultStatus = proto.CheckStatus_GREEN
 	var limitIsAbsent bool
 	var requestIsAbsent bool
 
 	if !container.Resources.Limits.Cpu().IsZero() {
-		resultDescription += "CPU limit: " + container.Resources.Limits.Cpu().String() + " "
+		result.Limits.CPU = container.Resources.Limits.Cpu().String()
 	} else {
-		resultDescription += "CPU limit: is Not Set "
+		result.Limits.CPU = isNotSetStatus
 		limitIsAbsent = true
 	}
 
 	if !container.Resources.Limits.Memory().IsZero() {
-		resultDescription += "RAM limit: " + container.Resources.Limits.Memory().String() + " "
+		result.Limits.RAM = container.Resources.Limits.Memory().String()
 	} else {
-		resultDescription += "RAM limit: is Not Set "
+		result.Limits.RAM = isNotSetStatus
 		limitIsAbsent = true
 	}
 
 	if !container.Resources.Requests.Cpu().IsZero() {
-		resultDescription += "CPU request: " + container.Resources.Requests.Cpu().String() + " "
+		result.Requests.CPU = container.Resources.Requests.Cpu().String()
 	} else {
-		resultDescription += "CPU request: is Not Set "
+		result.Requests.CPU = isNotSetStatus
 		requestIsAbsent = true
 	}
 
 	if !container.Resources.Requests.Memory().IsZero() {
-		resultDescription += "RAM request: " + container.Resources.Requests.Memory().String() + " "
+		result.Requests.RAM = container.Resources.Requests.Memory().String()
 	} else {
-		resultDescription += "RAM request: is Not Set "
+		result.Requests.RAM = isNotSetStatus
 		requestIsAbsent = true
 	}
 
@@ -150,5 +223,5 @@ func describeResourceRequirements(container v1.Container) (string, proto.CheckSt
 		resultStatus = proto.CheckStatus_RED
 	}
 
-	return resultDescription, resultStatus
+	return result, resultStatus
 }

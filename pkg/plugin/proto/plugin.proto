@@ -2,6 +2,8 @@ syntax = "proto3";
 
 package proto;
 
+import "google/protobuf/any.proto";
+
 
 service Plugin {
     rpc Info(Empty) returns (PluginInfo);
@@ -51,7 +53,8 @@ message CheckResult {
     string execution_status = 1;
     CheckStatus status = 2;
     string name = 3;
-    string description = 4;
+    // TODO: temporary solution need to be redesigned.
+    google.protobuf.Any description = 4;
     repeated Action actions = 5;
 }
 
