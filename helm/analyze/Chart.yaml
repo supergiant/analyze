@@ -3,7 +3,7 @@ version: 0.0.1
 appVersion: "v0.0.1"
 apiVersion: v1
 description: Analyze service. Checks your k8s cluster and makes suggestions how to save your money!
-icon: https://raw.githubusercontent.com/elastic/kibana/master/src/ui/public/icons/kibana-color.svg
+icon: https://user-images.githubusercontent.com/2936828/48134724-83961d80-e2a3-11e8-89ca-18b11a548c7f.png
 keywords:
 - kubernetes
 - k8s

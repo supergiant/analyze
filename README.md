@@ -1,4 +1,5 @@
-# Analyze
+![sg_analyze](https://user-images.githubusercontent.com/2936828/48134724-83961d80-e2a3-11e8-89ca-18b11a548c7f.png)
+# Analyze 
 
 This repository using go 1.11 modules instead of vendoring.
 In order to enable it export GO111MODULE=on  
