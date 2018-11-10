@@ -98,7 +98,7 @@ func (u *resourceRequirementsPlugin) Check(ctx context.Context, in *proto.CheckR
 
 	var descriptionValue = &checkResponse{
 		description: "Resources (CPU/RAM) requests and limits where checked on nodes of k8s cluster.",
-		Nodes:       make([]nodeResourceRequirements, len(nodes.Items)),
+		Nodes:       make([]nodeResourceRequirements, 0, len(nodes.Items)),
 	}
 
 	for _, node := range nodes.Items {
@@ -120,13 +120,13 @@ func (u *resourceRequirementsPlugin) Check(ctx context.Context, in *proto.CheckR
 		}
 		var nodeDesc = nodeResourceRequirements{
 			NodeName: node.Name,
-			Pods:     make([]podResourceRequirements, len(pods.Items)),
+			Pods:     make([]podResourceRequirements, 0, len(pods.Items)),
 		}
 
 		for _, pod := range pods.Items {
 			var podDescription = podResourceRequirements{
 				PodName:    pod.Name,
-				Containers: make([]containerResourceRequirements, len(pod.Spec.Containers)),
+				Containers: make([]containerResourceRequirements, 0, len(pod.Spec.Containers)),
 			}
 
 			for _, container := range pod.Spec.Containers {
