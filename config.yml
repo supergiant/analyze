@@ -6,9 +6,11 @@ api:
   server_host: 0.0.0.0
   server_port: 9092
 
-k8s_api_server_uri: localhost:4443
-
 plugin:
+  cloud_provider_type: "aws"
+  aws_access_key_id: "put here your Access key ID"
+  aws_secret_access_key: "put here your Secret access key"
+  aws_region: "put here your aws region"
   check_interval: 10s
   check_timeout: 2s
 

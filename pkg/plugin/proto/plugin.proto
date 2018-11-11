@@ -3,13 +3,14 @@ syntax = "proto3";
 package proto;
 
 import "google/protobuf/any.proto";
+import "google/protobuf/empty.proto";
 
 
 service Plugin {
-    rpc Info(Empty) returns (PluginInfo);
+    rpc Info(google.protobuf.Empty) returns (PluginInfo);
     rpc Check (CheckRequest) returns (CheckResponse);
     rpc Action (ActionRequest) returns (ActionResponse);
-    rpc Configure (PluginConfig) returns (Empty);
+    rpc Configure (PluginConfig) returns (google.protobuf.Empty);
 
     //Graceful Shutdown Plugin
     rpc Stop (Stop.Request) returns (Stop.Response);
@@ -27,11 +28,16 @@ message PluginInfo {
     string description = 4;
 }
 
+// plugin instance is running inside k8s cluster, consequently:
+// k8s api server doesn't need to be configured and is accessible through k8s service discovery
+// AWS credentials need to be configured
 message PluginConfig {
-    string cloud_provider_type = 1;
-    string financial_api_uri = 2;
-    string api_server_uri = 3;
-    string metrics_uri = 4;
+    CloudProviderType provider_type = 1;
+    oneof cloud_provider_config {
+        DoConfig do_config = 2;
+        AwsConfig aws_config = 3;
+    }
+    string metrics_server_uri = 5;
 }
 
 message Stop {
@@ -78,4 +84,19 @@ message ActionResponse {
     string error = 2;
 }
 
-message Empty {}
+enum CloudProviderType {
+    UNKNOWN_CLOUD_PROVIDER_TYPE = 0;
+    AWS = 1;
+    DO = 2;
+}
+
+message AwsConfig {
+    string access_key_id = 1;
+    string secret_access_key = 2;
+    string region = 3;
+}
+
+// not implemented yet
+message DoConfig {
+
+}

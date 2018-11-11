@@ -10,6 +10,10 @@ data:
    plugin:
      check_interval: 10s
      check_timeout: 2s
+     cloud_provider_type: {{ .Values.cloudProviderType }}
+     aws_access_key_id: {{ .Values.aws.accessKeyId }}
+     aws_secret_access_key: {{ .Values.aws.secretAccessKey }}
+     aws_region: {{ .Values.aws.region }}
    api:
      server_host: "0.0.0.0"
      server_port: {{ .Values.service.internalPort }}

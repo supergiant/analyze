@@ -3,6 +3,8 @@ package requestslimitscheck
 import (
 	"encoding/json"
 
+	"github.com/golang/protobuf/ptypes/empty"
+
 	"k8s.io/apimachinery/pkg/fields"
 
 	"github.com/golang/protobuf/ptypes/any"
@@ -154,7 +156,7 @@ func (u *resourceRequirementsPlugin) Action(ctx context.Context, in *proto.Actio
 	panic("implement me")
 }
 
-func (u *resourceRequirementsPlugin) Configure(ctx context.Context, in *proto.PluginConfig, opts ...grpc.CallOption) (*proto.Empty, error) {
+func (u *resourceRequirementsPlugin) Configure(ctx context.Context, in *proto.PluginConfig, opts ...grpc.CallOption) (*empty.Empty, error) {
 	return nil, nil
 }
 
@@ -162,7 +164,7 @@ func (u *resourceRequirementsPlugin) Stop(ctx context.Context, in *proto.Stop_Re
 	panic("implement me")
 }
 
-func (u *resourceRequirementsPlugin) Info(ctx context.Context, in *proto.Empty, opts ...grpc.CallOption) (*proto.PluginInfo, error) {
+func (u *resourceRequirementsPlugin) Info(ctx context.Context, in *empty.Empty, opts ...grpc.CallOption) (*proto.PluginInfo, error) {
 	return &proto.PluginInfo{
 		Id:      "supergiant-resources-requests-and-limits-check-plugin",
 		Version: "v0.0.1",

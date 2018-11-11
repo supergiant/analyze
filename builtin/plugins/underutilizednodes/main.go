@@ -1,7 +1,14 @@
 package underutilizednodes
 
 import (
+	"fmt"
+	"strings"
+
+	"github.com/golang/protobuf/ptypes/empty"
+
+	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/aws/external"
+	"github.com/aws/aws-sdk-go-v2/service/ec2"
 	"github.com/golang/protobuf/ptypes/any"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
@@ -104,7 +111,55 @@ func (u *uuNodesPlugin) Check(ctx context.Context, in *proto.CheckRequest, opts 
 	if err != nil {
 		panic("unable to load SDK config, " + err.Error())
 	}
-	cfg.Copy()
+
+	var awsConfig = u.config.GetAwsConfig()
+
+	cfg.Credentials = aws.NewStaticCredentialsProvider(
+		awsConfig.GetAccessKeyId(),
+		awsConfig.GetSecretAccessKey(),
+		"",
+	)
+	cfg.Region = awsConfig.GetRegion()
+
+	svc := ec2.New(cfg)
+	var nameFilter = "dmts-tst"
+
+	fmt.Printf("listing instances with tag %v in: %v\n", nameFilter, cfg.Region)
+	params := &ec2.DescribeInstancesInput{
+		Filters: []ec2.Filter{
+			{
+				Name: aws.String("tag:KubernetesCluster"),
+				Values: []string{
+					strings.Join([]string{"*", nameFilter, "*"}, ""),
+				},
+			},
+		},
+	}
+
+	req := svc.DescribeInstancesRequest(params)
+
+	resp, err := req.Send()
+	if err != nil {
+		fmt.Printf("failed to describe instances, %s, %v", cfg.Region, err)
+	}
+
+	if resp != nil {
+		for _, r := range resp.Reservations {
+			for _, i := range r.Instances {
+				fmt.Printf("InstanceId: %v\n", *i.InstanceId)
+				fmt.Printf("State: %v\n", *i.State)
+				fmt.Printf("InstanceType: %v\n", i.InstanceType)
+				for _, t := range i.Tags {
+					if *t.Key == "Name" {
+						fmt.Printf("Name tag: %v\n", *t.Value)
+					}
+					if *t.Key == "KubernetesCluster" {
+						fmt.Printf("KubernetesCluster tag: %v\n", *t.Value)
+					}
+				}
+			}
+		}
+	}
 
 	//for _, minion := range minions {
 	//	for _, pod := range minion.Pods {
@@ -125,7 +180,9 @@ func (u *uuNodesPlugin) Action(ctx context.Context, in *proto.ActionRequest, opt
 	panic("implement me")
 }
 
-func (u *uuNodesPlugin) Configure(ctx context.Context, in *proto.PluginConfig, opts ...grpc.CallOption) (*proto.Empty, error) {
+func (u *uuNodesPlugin) Configure(ctx context.Context, in *proto.PluginConfig, opts ...grpc.CallOption) (*empty.Empty, error) {
+	u.config = in
+	//TODO: add here config validation in future
 	return nil, nil
 }
 
@@ -133,7 +190,7 @@ func (u *uuNodesPlugin) Stop(ctx context.Context, in *proto.Stop_Request, opts .
 	panic("implement me")
 }
 
-func (u *uuNodesPlugin) Info(ctx context.Context, in *proto.Empty, opts ...grpc.CallOption) (*proto.PluginInfo, error) {
+func (u *uuNodesPlugin) Info(ctx context.Context, in *empty.Empty, opts ...grpc.CallOption) (*proto.PluginInfo, error) {
 	return &proto.PluginInfo{
 		Id:          "supergiant-underutilized-nodes-plugin",
 		Version:     "v0.0.1",
