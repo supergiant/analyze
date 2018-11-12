@@ -4,7 +4,7 @@ import { ChecksComponent }      from "src/app/checks/checks.component";
 
 const routes: Routes = [
   {
-    path: 'checks',
+    path: '',
     component: ChecksComponent
   },
 ];

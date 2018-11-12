@@ -9,6 +9,6 @@ import { ChecksComponent } from './checks.component';
   imports: [
     CommonModule,
     ChecksRoutingModule
-  ]
+  ],
 })
 export class ChecksModule { }
