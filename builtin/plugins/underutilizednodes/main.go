@@ -1,9 +1,11 @@
 package underutilizednodes
 
 import (
+	"encoding/json"
 	"fmt"
 	"strings"
 
+	"github.com/aws/aws-sdk-go-v2/service/pricing"
 	"github.com/golang/protobuf/ptypes/empty"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
@@ -43,6 +45,7 @@ func (u *uuNodesPlugin) Check(ctx context.Context, in *proto.CheckRequest, opts 
 	}
 
 	var minions = []*Minion{}
+	var minionsMap = map[string]*Minion{}
 	var result = &proto.CheckResult{
 		ExecutionStatus: "OK",
 		Status:          proto.CheckStatus_UNKNOWN_CHECK_STATUS,
@@ -84,6 +87,8 @@ func (u *uuNodesPlugin) Check(ctx context.Context, in *proto.CheckRequest, opts 
 			Node:              node,
 		}
 
+		minion.AWSZone, minion.InstanceID = parseProviderID(node.Spec.ProviderID)
+
 		// calculate minions requests/limits
 		reqs, limits := getPodsTotalRequestsAndLimits(nonTerminatedPodsList)
 		minion.cpuReqs, minion.cpuLimits = reqs[corev1api.ResourceCPU], limits[corev1api.ResourceCPU]
@@ -105,6 +110,7 @@ func (u *uuNodesPlugin) Check(ctx context.Context, in *proto.CheckRequest, opts 
 		}
 
 		minions = append(minions, minion)
+		minionsMap[minion.InstanceID] = minion
 	}
 
 	cfg, err := external.LoadDefaultAWSConfig()
@@ -121,59 +127,117 @@ func (u *uuNodesPlugin) Check(ctx context.Context, in *proto.CheckRequest, opts 
 	)
 	cfg.Region = awsConfig.GetRegion()
 
-	svc := ec2.New(cfg)
-	var nameFilter = "dmts-tst"
+	ec2Service := ec2.New(cfg)
 
-	fmt.Printf("listing instances with tag %v in: %v\n", nameFilter, cfg.Region)
-	params := &ec2.DescribeInstancesInput{
-		Filters: []ec2.Filter{
-			{
-				Name: aws.String("tag:KubernetesCluster"),
-				Values: []string{
-					strings.Join([]string{"*", nameFilter, "*"}, ""),
-				},
-			},
-		},
-	}
+	instancesRequest := ec2Service.DescribeInstancesRequest(nil)
 
-	req := svc.DescribeInstancesRequest(params)
-
-	resp, err := req.Send()
+	describeInstancesResponse, err := instancesRequest.Send()
 	if err != nil {
 		fmt.Printf("failed to describe instances, %s, %v", cfg.Region, err)
 	}
 
-	if resp != nil {
-		for _, r := range resp.Reservations {
+	if describeInstancesResponse != nil {
+		for _, r := range describeInstancesResponse.Reservations {
 			for _, i := range r.Instances {
-				fmt.Printf("InstanceId: %v\n", *i.InstanceId)
-				fmt.Printf("State: %v\n", *i.State)
-				fmt.Printf("InstanceType: %v\n", i.InstanceType)
-				for _, t := range i.Tags {
-					if *t.Key == "Name" {
-						fmt.Printf("Name tag: %v\n", *t.Value)
-					}
-					if *t.Key == "KubernetesCluster" {
-						fmt.Printf("KubernetesCluster tag: %v\n", *t.Value)
-					}
+				if i.InstanceId == nil {
+					continue
 				}
+				var minion, exists = minionsMap[*i.InstanceId]
+				if !exists {
+					continue
+				}
+				var instanceType, _ = i.InstanceType.MarshalValue()
+				minion.InstanceType = instanceType
+
 			}
 		}
 	}
 
-	//for _, minion := range minions {
-	//	for _, pod := range minion.Pods {
-	//		fmt.Printf(
-	//			"Pods: Namespace %s, Name %s, fisrtContainerResources %v, nodeName %s \n",
-	//			pod.Namespace,
-	//			pod.Name,
-	//			pod.Spec.Containers[0].Resources,
-	//			minion.Node.Name,
-	//		)
-	//	}
-	//}
+	for minionID, minion := range minionsMap {
+		fmt.Printf("minionID: %v, type: %s \n", minionID, minion.InstanceType)
+	}
+
+	// TODO bug in sdk?
+	cfg.Region = "us-east-1"
+	pricingService := pricing.New(cfg)
+	input := &pricing.DescribeServicesInput{
+		FormatVersion: aws.String("aws_v1"),
+		MaxResults:    aws.Int64(1),
+		ServiceCode:   aws.String("AmazonEC2"),
+	}
+	pricingRequest := pricingService.DescribeServicesRequest(input)
+	describePricingResponse, err := pricingRequest.Send()
+	if err != nil {
+		fmt.Printf("failed to describe pricing, %s, %v", cfg.Region, err)
+	}
+	if describePricingResponse != nil {
+		fmt.Printf("%+v \n", *describePricingResponse)
+	}
+
+	avInput := &pricing.GetAttributeValuesInput{
+		AttributeName: aws.String("location"),
+		MaxResults:    aws.Int64(100),
+		ServiceCode:   aws.String("AmazonEC2"),
+	}
+
+	avReq := pricingService.GetAttributeValuesRequest(avInput)
+	avResult, err := avReq.Send()
+	if err != nil {
+		fmt.Printf("failed to describe avResult, %s, %v", cfg.Region, err)
+	}
+	if avResult != nil {
+		fmt.Printf("%+v \n", *avResult)
+	}
+
+	productsInput := &pricing.GetProductsInput{
+		Filters: []pricing.Filter{
+			{
+				Field: aws.String("ServiceCode"),
+				Type:  pricing.FilterTypeTermMatch,
+				Value: aws.String("AmazonEC2"),
+			},
+			{
+				Field: aws.String("location"),
+				Type:  pricing.FilterTypeTermMatch,
+				Value: aws.String("US West (N. California)"), //TODO region to location???
+			},
+		},
+		FormatVersion: aws.String("aws_v1"),
+		MaxResults:    aws.Int64(100), //TODO: add pagination
+		ServiceCode:   aws.String("AmazonEC2"),
+	}
+
+	productsRequest := pricingService.GetProductsRequest(productsInput)
+	productsOutput, err := productsRequest.Send()
+	if err != nil {
+		fmt.Printf("failed to describe products, %s, %v", cfg.Region, err)
+	}
+	if productsOutput != nil {
+		for _, vv := range productsOutput.PriceList {
+			b, _ := json.Marshal(vv)
+			fmt.Printf("%s\n", string(b))
+		}
+	}
 
 	return &proto.CheckResponse{Result: result}, nil
+}
+
+//func printMap(in map[string]interface{}, prefix string) {
+//	for k, v := range in {
+//		if n, ok := v.(map[string]interface{}); ok {
+//				printMap(n, prefix + k)
+//		} else {
+//			fmt.Printf(prefix + " %s === %+v \n", k, v)
+//		}
+//	}
+//}
+
+// TODO: add checks and errors
+// for aws ProviderID has format - aws:///us-west-1b/i-0c912bfd4048b97e5
+func parseProviderID(providerID string) (string, string) {
+	var s = strings.TrimPrefix(providerID, "aws:///")
+	ss := strings.Split(s, "/")
+	return ss[0], ss[1]
 }
 
 func (u *uuNodesPlugin) Action(ctx context.Context, in *proto.ActionRequest, opts ...grpc.CallOption) (*proto.ActionResponse, error) {

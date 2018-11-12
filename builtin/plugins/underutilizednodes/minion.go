@@ -8,7 +8,7 @@ import (
 // Minion struct represents k8s cluster worker node
 type Minion struct {
 	AWSZone           string
-	ID                string
+	InstanceID        string
 	InstanceType      string
 	NonTerminatedPods []v1.Pod
 	Node              v1.Node
