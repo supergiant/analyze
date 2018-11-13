@@ -18,10 +18,16 @@ var (
 
 func init() {
 	SwaggerJSON = json.RawMessage([]byte(`{
+  "consumes": [
+    "application/json"
+  ],
+  "produces": [
+    "application/json"
+  ],
   "swagger": "2.0",
   "info": {
-    "title": "Robot Service",
-    "version": "0.0.1"
+    "title": "Analyze service API",
+    "version": "v0.0.1"
   },
   "basePath": "/api/v1",
   "paths": {
@@ -36,15 +42,10 @@ func init() {
           "200": {
             "description": "no error",
             "schema": {
-              "type": "object",
-              "properties": {
-                "CheckResults": {
-                  "description": "existing checks",
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/definitions/CheckResult"
-                  }
-                }
+              "description": "existing checks",
+              "type": "array",
+              "items": {
+                "$ref": "#/definitions/checkResult"
               }
             }
           },
@@ -63,18 +64,18 @@ func init() {
           "application/json"
         ],
         "summary": "Returns list of the installed recommendation plugins",
-        "operationId": "getRecommendationPlugins",
+        "operationId": "getPlugins",
         "responses": {
           "200": {
             "description": "no error",
             "schema": {
               "type": "object",
               "properties": {
-                "InstalledRecommendationPlugins": {
+                "installedPlugins": {
                   "description": "installed plugins",
                   "type": "array",
                   "items": {
-                    "$ref": "#/definitions/RecommendationPlugin"
+                    "$ref": "#/definitions/plugin"
                   }
                 }
               }
@@ -91,11 +92,11 @@ func init() {
     }
   },
   "definitions": {
-    "CheckResult": {
+    "checkResult": {
       "description": "CheckResult represents the single result of Check function invocation of specific plugin.",
       "type": "object",
       "properties": {
-        "CheckStatus": {
+        "checkStatus": {
           "description": "shows check status",
           "type": "string",
           "enum": [
@@ -104,78 +105,33 @@ func init() {
             "GREEN"
           ]
         },
-        "CompletedAt": {
+        "completedAt": {
           "description": "date/Time of check execution",
           "type": "string",
           "format": "dateTime"
         },
-        "Description": {
+        "description": {
           "description": "detailed check result description",
           "type": "string"
         },
-        "ExecutionStatus": {
+        "executionStatus": {
           "description": "shows check execution errors",
           "type": "string"
         },
-        "Id": {
+        "id": {
           "description": "unique UUID of Check function invocation of specific plugin",
           "type": "string"
         },
-        "Name": {
+        "name": {
           "description": "check name",
           "type": "string"
         },
-        "PossibleActions": {
+        "possibleActions": {
           "description": "list of possible actions to fix caveats check was found",
           "type": "array",
           "items": {
-            "$ref": "#/definitions/PluginAction"
+            "$ref": "#/definitions/pluginAction"
           }
-        }
-      }
-    },
-    "PluginAction": {
-      "description": "CheckResult represents the single result of Check function invocation of specific plugin.",
-      "type": "object",
-      "properties": {
-        "Description": {
-          "description": "detailed action description",
-          "type": "string"
-        },
-        "Id": {
-          "description": "unique UUID of plugin action",
-          "type": "string"
-        }
-      }
-    },
-    "RecommendationPlugin": {
-      "description": "RecommendationPlugin represents the installed recommendation plugin",
-      "type": "object",
-      "properties": {
-        "Description": {
-          "description": "detailed plugin description",
-          "type": "string"
-        },
-        "Id": {
-          "description": "unique ID of installed plugin\nbasically it is slugged URI of plugin repository name e. g. supergiant-request-limits-check\n",
-          "type": "string"
-        },
-        "InstalledAt": {
-          "description": "date/Time the plugin was installed",
-          "type": "string",
-          "format": "dateTime"
-        },
-        "Name": {
-          "description": "name is the name of the plugin.",
-          "type": "string"
-        },
-        "Status": {
-          "description": "plugin status",
-          "type": "string"
-        },
-        "Version": {
-          "description": "plugin version, major version shall be equal to robots version",
-          "type": "string"
         }
       }
     },
@@ -190,6 +146,51 @@ func init() {
           "format": "int64"
         },
         "message": {
+          "type": "string"
+        }
+      }
+    },
+    "plugin": {
+      "description": "plugin represents the installed recommendation plugin",
+      "type": "object",
+      "properties": {
+        "description": {
+          "description": "detailed plugin description",
+          "type": "string"
+        },
+        "id": {
+          "description": "unique ID of installed plugin\nbasically it is slugged URI of plugin repository name e. g. supergiant-request-limits-check\n",
+          "type": "string"
+        },
+        "installedAt": {
+          "description": "date/Time the plugin was installed",
+          "type": "string",
+          "format": "dateTime"
+        },
+        "name": {
+          "description": "name is the name of the plugin.",
+          "type": "string"
+        },
+        "status": {
+          "description": "plugin status",
+          "type": "string"
+        },
+        "version": {
+          "description": "plugin version, major version shall be equal to robots version",
+          "type": "string"
+        }
+      }
+    },
+    "pluginAction": {
+      "description": "CheckResult represents the single result of Check function invocation of specific plugin.",
+      "type": "object",
+      "properties": {
+        "description": {
+          "description": "detailed action description",
+          "type": "string"
+        },
+        "id": {
+          "description": "unique UUID of plugin action",
           "type": "string"
         }
       }
@@ -197,10 +198,16 @@ func init() {
   }
 }`))
 	FlatSwaggerJSON = json.RawMessage([]byte(`{
+  "consumes": [
+    "application/json"
+  ],
+  "produces": [
+    "application/json"
+  ],
   "swagger": "2.0",
   "info": {
-    "title": "Robot Service",
-    "version": "0.0.1"
+    "title": "Analyze service API",
+    "version": "v0.0.1"
   },
   "basePath": "/api/v1",
   "paths": {
@@ -215,15 +222,10 @@ func init() {
           "200": {
             "description": "no error",
             "schema": {
-              "type": "object",
-              "properties": {
-                "CheckResults": {
-                  "description": "existing checks",
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/definitions/CheckResult"
-                  }
-                }
+              "description": "existing checks",
+              "type": "array",
+              "items": {
+                "$ref": "#/definitions/checkResult"
               }
             }
           },
@@ -242,18 +244,18 @@ func init() {
           "application/json"
         ],
         "summary": "Returns list of the installed recommendation plugins",
-        "operationId": "getRecommendationPlugins",
+        "operationId": "getPlugins",
         "responses": {
           "200": {
             "description": "no error",
             "schema": {
               "type": "object",
               "properties": {
-                "InstalledRecommendationPlugins": {
+                "installedPlugins": {
                   "description": "installed plugins",
                   "type": "array",
                   "items": {
-                    "$ref": "#/definitions/RecommendationPlugin"
+                    "$ref": "#/definitions/plugin"
                   }
                 }
               }
@@ -270,11 +272,11 @@ func init() {
     }
   },
   "definitions": {
-    "CheckResult": {
+    "checkResult": {
       "description": "CheckResult represents the single result of Check function invocation of specific plugin.",
       "type": "object",
       "properties": {
-        "CheckStatus": {
+        "checkStatus": {
           "description": "shows check status",
           "type": "string",
           "enum": [
@@ -283,78 +285,33 @@ func init() {
             "GREEN"
           ]
         },
-        "CompletedAt": {
+        "completedAt": {
           "description": "date/Time of check execution",
           "type": "string",
           "format": "dateTime"
         },
-        "Description": {
+        "description": {
           "description": "detailed check result description",
           "type": "string"
         },
-        "ExecutionStatus": {
+        "executionStatus": {
           "description": "shows check execution errors",
           "type": "string"
         },
-        "Id": {
+        "id": {
           "description": "unique UUID of Check function invocation of specific plugin",
           "type": "string"
         },
-        "Name": {
+        "name": {
           "description": "check name",
           "type": "string"
         },
-        "PossibleActions": {
+        "possibleActions": {
           "description": "list of possible actions to fix caveats check was found",
           "type": "array",
           "items": {
-            "$ref": "#/definitions/PluginAction"
+            "$ref": "#/definitions/pluginAction"
           }
-        }
-      }
-    },
-    "PluginAction": {
-      "description": "CheckResult represents the single result of Check function invocation of specific plugin.",
-      "type": "object",
-      "properties": {
-        "Description": {
-          "description": "detailed action description",
-          "type": "string"
-        },
-        "Id": {
-          "description": "unique UUID of plugin action",
-          "type": "string"
-        }
-      }
-    },
-    "RecommendationPlugin": {
-      "description": "RecommendationPlugin represents the installed recommendation plugin",
-      "type": "object",
-      "properties": {
-        "Description": {
-          "description": "detailed plugin description",
-          "type": "string"
-        },
-        "Id": {
-          "description": "unique ID of installed plugin\nbasically it is slugged URI of plugin repository name e. g. supergiant-request-limits-check\n",
-          "type": "string"
-        },
-        "InstalledAt": {
-          "description": "date/Time the plugin was installed",
-          "type": "string",
-          "format": "dateTime"
-        },
-        "Name": {
-          "description": "name is the name of the plugin.",
-          "type": "string"
-        },
-        "Status": {
-          "description": "plugin status",
-          "type": "string"
-        },
-        "Version": {
-          "description": "plugin version, major version shall be equal to robots version",
-          "type": "string"
         }
       }
     },
@@ -369,6 +326,51 @@ func init() {
           "format": "int64"
         },
         "message": {
+          "type": "string"
+        }
+      }
+    },
+    "plugin": {
+      "description": "plugin represents the installed recommendation plugin",
+      "type": "object",
+      "properties": {
+        "description": {
+          "description": "detailed plugin description",
+          "type": "string"
+        },
+        "id": {
+          "description": "unique ID of installed plugin\nbasically it is slugged URI of plugin repository name e. g. supergiant-request-limits-check\n",
+          "type": "string"
+        },
+        "installedAt": {
+          "description": "date/Time the plugin was installed",
+          "type": "string",
+          "format": "dateTime"
+        },
+        "name": {
+          "description": "name is the name of the plugin.",
+          "type": "string"
+        },
+        "status": {
+          "description": "plugin status",
+          "type": "string"
+        },
+        "version": {
+          "description": "plugin version, major version shall be equal to robots version",
+          "type": "string"
+        }
+      }
+    },
+    "pluginAction": {
+      "description": "CheckResult represents the single result of Check function invocation of specific plugin.",
+      "type": "object",
+      "properties": {
+        "description": {
+          "description": "detailed action description",
+          "type": "string"
+        },
+        "id": {
+          "description": "unique UUID of plugin action",
           "type": "string"
         }
       }

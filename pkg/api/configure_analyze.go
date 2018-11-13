@@ -15,6 +15,7 @@ import (
 
 	"github.com/go-openapi/errors"
 	"github.com/go-openapi/runtime"
+	"github.com/rs/cors"
 
 	_ "github.com/supergiant/robot/statik"
 )
@@ -71,7 +72,17 @@ func setupGlobalMiddleware(handler http.Handler) http.Handler {
 		Log: logrus.Error,
 	})(handler)
 
-	handlerWithSwagger := swaggerMiddleware(handlerWithRecovery)
+	//TODO fix CORS till release
+	corsHandler := cors.New(cors.Options{
+		Debug: false,
+		AllowedHeaders:[]string{"*"},
+		AllowedOrigins:[]string{"*"},
+		AllowedMethods:[]string{},
+		MaxAge:1000,
+	}).Handler(handlerWithRecovery)
+
+
+	handlerWithSwagger := swaggerMiddleware(corsHandler)
 
 	return handlerWithSwagger
 }

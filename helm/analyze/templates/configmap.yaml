@@ -8,7 +8,7 @@ data:
      level: debug
      formatter: TXT
    plugin:
-     check_interval: 10s
+     check_interval: 30s
      check_timeout: 2s
      cloud_provider_type: {{ .Values.cloudProviderType }}
      aws_access_key_id: {{ .Values.aws.accessKeyId }}

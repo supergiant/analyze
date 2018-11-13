@@ -18,68 +18,68 @@ definitions:
         format: int64
       message:
         type: string
-  RecommendationPlugin:
+  plugin:
     type: "object"
-    description: "RecommendationPlugin represents the installed recommendation plugin"
+    description: "plugin represents the installed recommendation plugin"
     properties:
-      Id:
+      id:
         description: |
           unique ID of installed plugin
           basically it is slugged URI of plugin repository name e. g. supergiant-request-limits-check
         type: "string"
-      Version:
+      version:
         description: "plugin version, major version shall be equal to robots version"
         type: "string"
-      Name:
+      name:
         description: "name is the name of the plugin."
         type: "string"
-      Description:
+      description:
         description: "detailed plugin description"
         type: "string"
-      Status:
+      status:
         description: "plugin status"
         type: "string"
-      InstalledAt:
+      installedAt:
         type: "string"
         format: "dateTime"
         description: "date/Time the plugin was installed"
-  CheckResult:
+  checkResult:
     type: "object"
     description: "CheckResult represents the single result of Check function invocation of specific plugin."
     properties:
-      Id:
+      id:
         description: "unique UUID of Check function invocation of specific plugin"
         type: "string"
-      Name:
+      name:
         description: "check name"
         type: "string"
-      CompletedAt:
+      completedAt:
         type: "string"
         format: "dateTime"
         description: "date/Time of check execution"
-      ExecutionStatus:
+      executionStatus:
         description: "shows check execution errors"
         type: "string"
-      CheckStatus:
+      checkStatus:
         description: "shows check status"
         type: "string"
         enum: [RED, YELLOW, GREEN]
-      Description:
+      description:
         description: "detailed check result description"
         type: "string"
-      PossibleActions:
+      possibleActions:
         description: "list of possible actions to fix caveats check was found"
         type: "array"
         items:
-          $ref: "#/definitions/PluginAction"
-  PluginAction:
+          $ref: "#/definitions/pluginAction"
+  pluginAction:
     type: "object"
     description: "CheckResult represents the single result of Check function invocation of specific plugin."
     properties:
-      Id:
+      id:
         description: "unique UUID of plugin action"
         type: "string"
-      Description:
+      description:
         description: "detailed action description"
         type: "string"
 paths:
@@ -88,18 +88,18 @@ paths:
       summary: "Returns list of the installed recommendation plugins"
       produces:
       - application/json
-      operationId: getRecommendationPlugins
+      operationId: getPlugins
       responses:
         200:
           description: no error
           schema:
             type: "object"
             properties:
-              InstalledRecommendationPlugins:
+              installedPlugins:
                 type: "array"
                 description: "installed plugins"
                 items:
-                  $ref: "#/definitions/RecommendationPlugin"
+                  $ref: "#/definitions/plugin"
         default:
           description: error
           schema:
@@ -114,13 +114,10 @@ paths:
         200:
           description: no error
           schema:
-            type: "object"
-            properties:
-              CheckResults:
-                type: "array"
-                description: "existing checks"
-                items:
-                  $ref: "#/definitions/CheckResult"
+            type: "array"
+            description: "existing checks"
+            items:
+              $ref: "#/definitions/checkResult"
         default:
           description: error
           schema:

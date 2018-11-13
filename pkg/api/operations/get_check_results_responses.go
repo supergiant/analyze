@@ -22,10 +22,10 @@ swagger:response getCheckResultsOK
 */
 type GetCheckResultsOK struct {
 
-	/*
+	/*existing checks
 	  In: Body
 	*/
-	Payload *GetCheckResultsOKBody `json:"body,omitempty"`
+	Payload []*models.CheckResult `json:"body,omitempty"`
 }
 
 // NewGetCheckResultsOK creates GetCheckResultsOK with default headers values
@@ -35,13 +35,13 @@ func NewGetCheckResultsOK() *GetCheckResultsOK {
 }
 
 // WithPayload adds the payload to the get check results o k response
-func (o *GetCheckResultsOK) WithPayload(payload *GetCheckResultsOKBody) *GetCheckResultsOK {
+func (o *GetCheckResultsOK) WithPayload(payload []*models.CheckResult) *GetCheckResultsOK {
 	o.Payload = payload
 	return o
 }
 
 // SetPayload sets the payload to the get check results o k response
-func (o *GetCheckResultsOK) SetPayload(payload *GetCheckResultsOKBody) {
+func (o *GetCheckResultsOK) SetPayload(payload []*models.CheckResult) {
 	o.Payload = payload
 }
 
@@ -49,12 +49,15 @@ func (o *GetCheckResultsOK) SetPayload(payload *GetCheckResultsOKBody) {
 func (o *GetCheckResultsOK) WriteResponse(rw http.ResponseWriter, producer runtime.Producer) {
 
 	rw.WriteHeader(200)
-	if o.Payload != nil {
-		payload := o.Payload
-		if err := producer.Produce(rw, payload); err != nil {
-			panic(err) // let the recovery middleware deal with this
-		}
+	payload := o.Payload
+	if payload == nil {
+		payload = make([]*models.CheckResult, 0, 50)
 	}
+
+	if err := producer.Produce(rw, payload); err != nil {
+		panic(err) // let the recovery middleware deal with this
+	}
+
 }
 
 /*GetCheckResultsDefault error

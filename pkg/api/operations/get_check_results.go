@@ -7,14 +7,8 @@ package operations
 
 import (
 	"net/http"
-	"strconv"
 
-	errors "github.com/go-openapi/errors"
 	middleware "github.com/go-openapi/runtime/middleware"
-	strfmt "github.com/go-openapi/strfmt"
-	swag "github.com/go-openapi/swag"
-
-	models "github.com/supergiant/robot/pkg/models"
 )
 
 // GetCheckResultsHandlerFunc turns a function with the right signature into a get check results handler
@@ -61,69 +55,4 @@ func (o *GetCheckResults) ServeHTTP(rw http.ResponseWriter, r *http.Request) {
 
 	o.Context.Respond(rw, r, route.Produces, route, res)
 
-}
-
-// GetCheckResultsOKBody get check results o k body
-// swagger:model GetCheckResultsOKBody
-type GetCheckResultsOKBody struct {
-
-	// existing checks
-	CheckResults []*models.CheckResult `json:"CheckResults"`
-}
-
-// Validate validates this get check results o k body
-func (o *GetCheckResultsOKBody) Validate(formats strfmt.Registry) error {
-	var res []error
-
-	if err := o.validateCheckResults(formats); err != nil {
-		res = append(res, err)
-	}
-
-	if len(res) > 0 {
-		return errors.CompositeValidationError(res...)
-	}
-	return nil
-}
-
-func (o *GetCheckResultsOKBody) validateCheckResults(formats strfmt.Registry) error {
-
-	if swag.IsZero(o.CheckResults) { // not required
-		return nil
-	}
-
-	for i := 0; i < len(o.CheckResults); i++ {
-		if swag.IsZero(o.CheckResults[i]) { // not required
-			continue
-		}
-
-		if o.CheckResults[i] != nil {
-			if err := o.CheckResults[i].Validate(formats); err != nil {
-				if ve, ok := err.(*errors.Validation); ok {
-					return ve.ValidateName("getCheckResultsOK" + "." + "CheckResults" + "." + strconv.Itoa(i))
-				}
-				return err
-			}
-		}
-
-	}
-
-	return nil
-}
-
-// MarshalBinary interface implementation
-func (o *GetCheckResultsOKBody) MarshalBinary() ([]byte, error) {
-	if o == nil {
-		return nil, nil
-	}
-	return swag.WriteJSON(o)
-}
-
-// UnmarshalBinary interface implementation
-func (o *GetCheckResultsOKBody) UnmarshalBinary(b []byte) error {
-	var res GetCheckResultsOKBody
-	if err := swag.ReadJSON(b, &res); err != nil {
-		return err
-	}
-	*o = res
-	return nil
 }

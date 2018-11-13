@@ -41,9 +41,7 @@ func (h *checkResultsHandler) Handle(params operations.GetCheckResultsParams) mi
 		return r
 	}
 
-	result := &operations.GetCheckResultsOKBody{
-		CheckResults: []*models.CheckResult{},
-	}
+	result := []*models.CheckResult{}
 
 	for _, rawResult := range resultsRaw {
 		checkResult := &models.CheckResult{}
@@ -57,7 +55,7 @@ func (h *checkResultsHandler) Handle(params operations.GetCheckResultsParams) mi
 			}
 			return r
 		}
-		result.CheckResults = append(result.CheckResults, checkResult)
+		result = append(result, checkResult)
 	}
 	h.log.Debugf("request processing finished at: %v, request: %+v", time.Now(), params)
 

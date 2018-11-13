@@ -61,6 +61,7 @@ require (
 	github.com/prometheus/common v0.0.0-20181109100915-0b1957f9d949 // indirect
 	github.com/prometheus/procfs v0.0.0-20181005140218-185b4288413d // indirect
 	github.com/rakyll/statik v0.1.5
+	github.com/rs/cors v1.6.0
 	github.com/sirupsen/logrus v1.0.6
 	github.com/smartystreets/assertions v0.0.0-20180927180507-b2de0cb4f26d // indirect
 	github.com/smartystreets/goconvey v0.0.0-20181108003508-044398e4856c // indirect

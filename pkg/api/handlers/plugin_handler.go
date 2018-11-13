@@ -13,26 +13,26 @@ import (
 	"github.com/supergiant/robot/pkg/storage"
 )
 
-type recommendationPluginsHandler struct {
+type pluginsHandler struct {
 	storage storage.Interface
 	log     logrus.FieldLogger
 }
 
-func NewRecommendationPluginsHandler(storage storage.Interface, logger logrus.FieldLogger) operations.GetRecommendationPluginsHandler {
-	return &recommendationPluginsHandler{
+func NewPluginsHandler(storage storage.Interface, logger logrus.FieldLogger) operations.GetPluginsHandler {
+	return &pluginsHandler{
 		storage: storage,
 		log:     logger,
 	}
 }
 
-func (h *recommendationPluginsHandler) Handle(params operations.GetRecommendationPluginsParams) middleware.Responder {
+func (h *pluginsHandler) Handle(params operations.GetPluginsParams) middleware.Responder {
 	h.log.Debugf("got request at: %v, request: %+v", time.Now(), params)
 	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
 	defer cancel()
 	pluginRaw, err := h.storage.GetAll(ctx, models.PluginPrefix)
 
 	if err != nil {
-		r := operations.NewGetRecommendationPluginsDefault(http.StatusInternalServerError)
+		r := operations.NewGetPluginsDefault(http.StatusInternalServerError)
 		msg := err.Error()
 		r.Payload = &models.Error{
 			Code:    http.StatusInternalServerError,
@@ -41,15 +41,15 @@ func (h *recommendationPluginsHandler) Handle(params operations.GetRecommendatio
 		return r
 	}
 
-	result := &operations.GetRecommendationPluginsOKBody{
-		InstalledRecommendationPlugins: []*models.RecommendationPlugin{},
+	result := &operations.GetPluginsOKBody{
+		InstalledPlugins: []*models.Plugin{},
 	}
 
 	for _, rawPlugin := range pluginRaw {
-		p := &models.RecommendationPlugin{}
+		p := &models.Plugin{}
 		err := p.UnmarshalBinary(rawPlugin)
 		if err != nil {
-			r := operations.NewGetRecommendationPluginsDefault(http.StatusInternalServerError)
+			r := operations.NewGetPluginsDefault(http.StatusInternalServerError)
 			msg := err.Error()
 			r.Payload = &models.Error{
 				Code:    http.StatusInternalServerError,
@@ -57,9 +57,9 @@ func (h *recommendationPluginsHandler) Handle(params operations.GetRecommendatio
 			}
 			return r
 		}
-		result.InstalledRecommendationPlugins = append(result.InstalledRecommendationPlugins, p)
+		result.InstalledPlugins = append(result.InstalledPlugins, p)
 	}
 	h.log.Debugf("request processing finished at: %v, request: %+v", time.Now(), params)
 
-	return operations.NewGetRecommendationPluginsOK().WithPayload(result)
+	return operations.NewGetPluginsOK().WithPayload(result)
 }

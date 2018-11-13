@@ -17,30 +17,30 @@ import (
 )
 
 // CheckResult CheckResult represents the single result of Check function invocation of specific plugin.
-// swagger:model CheckResult
+// swagger:model checkResult
 type CheckResult struct {
 
 	// shows check status
 	// Enum: [RED YELLOW GREEN]
-	CheckStatus string `json:"CheckStatus,omitempty"`
+	CheckStatus string `json:"checkStatus,omitempty"`
 
 	// date/Time of check execution
-	CompletedAt string `json:"CompletedAt,omitempty"`
+	CompletedAt string `json:"completedAt,omitempty"`
 
 	// detailed check result description
-	Description string `json:"Description,omitempty"`
+	Description string `json:"description,omitempty"`
 
 	// shows check execution errors
-	ExecutionStatus string `json:"ExecutionStatus,omitempty"`
+	ExecutionStatus string `json:"executionStatus,omitempty"`
 
 	// unique UUID of Check function invocation of specific plugin
-	ID string `json:"Id,omitempty"`
+	ID string `json:"id,omitempty"`
 
 	// check name
-	Name string `json:"Name,omitempty"`
+	Name string `json:"name,omitempty"`
 
 	// list of possible actions to fix caveats check was found
-	PossibleActions []*PluginAction `json:"PossibleActions"`
+	PossibleActions []*PluginAction `json:"possibleActions"`
 }
 
 // Validate validates this check result
@@ -100,7 +100,7 @@ func (m *CheckResult) validateCheckStatus(formats strfmt.Registry) error {
 	}
 
 	// value enum
-	if err := m.validateCheckStatusEnum("CheckStatus", "body", m.CheckStatus); err != nil {
+	if err := m.validateCheckStatusEnum("checkStatus", "body", m.CheckStatus); err != nil {
 		return err
 	}
 
@@ -121,7 +121,7 @@ func (m *CheckResult) validatePossibleActions(formats strfmt.Registry) error {
 		if m.PossibleActions[i] != nil {
 			if err := m.PossibleActions[i].Validate(formats); err != nil {
 				if ve, ok := err.(*errors.Validation); ok {
-					return ve.ValidateName("PossibleActions" + "." + strconv.Itoa(i))
+					return ve.ValidateName("possibleActions" + "." + strconv.Itoa(i))
 				}
 				return err
 			}

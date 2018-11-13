@@ -12,14 +12,14 @@ import (
 )
 
 // PluginAction CheckResult represents the single result of Check function invocation of specific plugin.
-// swagger:model PluginAction
+// swagger:model pluginAction
 type PluginAction struct {
 
 	// detailed action description
-	Description string `json:"Description,omitempty"`
+	Description string `json:"description,omitempty"`
 
 	// unique UUID of plugin action
-	ID string `json:"Id,omitempty"`
+	ID string `json:"id,omitempty"`
 }
 
 // Validate validates this plugin action

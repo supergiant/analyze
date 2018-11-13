@@ -103,7 +103,7 @@ func runCommand(cmd *cobra.Command, _ []string) error {
 			mainLogger.Errorf("unable to load plugin, name: %v, error %v", pluginName, err)
 		}
 
-		b, err := (&models.RecommendationPlugin{
+		b, err := (&models.Plugin{
 			Description: pluginInfo.Description,
 			ID:          pluginInfo.Id,
 			InstalledAt: time.Now().String(),
@@ -192,7 +192,7 @@ func runCommand(cmd *cobra.Command, _ []string) error {
 	//TODO: add request logging middleware
 	//TODO: add metrics middleware
 	analyzeAPI := operations.NewAnalyzeAPI(swaggerSpec)
-	analyzeAPI.GetRecommendationPluginsHandler = handlers.NewRecommendationPluginsHandler(
+	analyzeAPI.GetPluginsHandler = handlers.NewPluginsHandler(
 		etcdStorage,
 		log.WithField("handler", "RecommendationPluginsHandler"),
 	)
