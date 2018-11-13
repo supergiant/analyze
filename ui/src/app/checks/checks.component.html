@@ -1,3 +1,91 @@
-<p>
-  checks works!
-</p>
+<mat-card class="check-item" *ngFor="let check of (checks$ | async)">
+  <mat-card-title>
+    {{ check.name }}
+    {{ check.completedAt | date: 'medium' }}
+  </mat-card-title>
+  Status: {{ check.checkStatus }}
+  <br>
+  <!-- TODO: remove harcode -->
+
+  <div *ngIf="isObject(check.description)">
+    <table *ngIf="check.description as data">
+      <tr>
+        <th>name</th>
+        <th>pods</th>
+      </tr>
+      <tr *ngFor="let node of data.Nodes">
+        <td> {{ node.NodeName }}</td>
+        <td>
+
+      <tr>
+        <th>pod name</th>
+        <th>containers</th>
+      </tr>
+      <tr *ngFor="let pod of node.Pods">
+        <td>{{ pod.PodName }}</td>
+        <td>
+          <table>
+            <tr>
+              <th>ContainerName</th>
+              <th>ContainerImage</th>
+              <th>Requests</th>
+              <th>Limits</th>
+            </tr>
+            <tr *ngFor="let container of pod.Containers">
+              <td>{{ container.ContainerName }}</td>
+              <td>{{ container.ContainerImage }}</td>
+              <td>
+                <table>
+                  <tr>
+                    <th>
+                      ram
+                    </th>
+                    <th>
+                      cpu
+                    </th>
+                  </tr>
+                  <tr>
+                    <td>
+                      {{ container.Requests.RAM }}
+                    </td>
+                    <td>
+                      {{ container.Requests.CPU }}
+                    </td>
+                  </tr>
+                </table>
+              </td>
+              <td>
+                <table>
+                  <tr>
+                    <th>
+                      ram
+                    </th>
+                    <th>
+                      cpu
+                    </th>
+                  </tr>
+                  <tr>
+                    <td>
+                      {{ container.Limits.RAM }}
+                    </td>
+                    <td>
+                      {{ container.Limits.CPU }}
+                    </td>
+                  </tr>
+                </table>
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+
+      </td>
+      </tr>
+    </table>
+  </div>
+  <span *ngFor="let check of check.possibleActions as action">
+    {{ action.description }}
+    <button>run id {{ check.id}}</button>
+  </span>
+</mat-card>
+
