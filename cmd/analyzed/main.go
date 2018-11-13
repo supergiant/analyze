@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"github.com/go-openapi/strfmt"
 	"log"
 	"os"
 	"time"
@@ -106,7 +107,7 @@ func runCommand(cmd *cobra.Command, _ []string) error {
 		b, err := (&models.Plugin{
 			Description: pluginInfo.Description,
 			ID:          pluginInfo.Id,
-			InstalledAt: time.Now().String(),
+			InstalledAt: strfmt.DateTime(time.Now()),
 			Name:        pluginInfo.Name,
 			Status:      "OK", // TODO: add status to proto, than implement plugins state which will reflect it's status
 			Version:     pluginInfo.Version,
@@ -155,7 +156,7 @@ func runCommand(cmd *cobra.Command, _ []string) error {
 				var currentTime = time.Now()
 				checkResult := models.CheckResult{
 					CheckStatus:     r.GetStatus().String(),
-					CompletedAt:     currentTime.String(),
+					CompletedAt:     strfmt.DateTime(currentTime),
 					Description:     string(r.GetDescription().Value),
 					ExecutionStatus: r.GetExecutionStatus(),
 					ID:              r.GetName(),

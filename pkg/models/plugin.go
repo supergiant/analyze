@@ -8,7 +8,9 @@ package models
 import (
 	strfmt "github.com/go-openapi/strfmt"
 
+	"github.com/go-openapi/errors"
 	"github.com/go-openapi/swag"
+	"github.com/go-openapi/validate"
 )
 
 // Plugin plugin represents the installed recommendation plugin
@@ -24,7 +26,8 @@ type Plugin struct {
 	ID string `json:"id,omitempty"`
 
 	// date/Time the plugin was installed
-	InstalledAt string `json:"installedAt,omitempty"`
+	// Format: date-time
+	InstalledAt strfmt.DateTime `json:"installedAt,omitempty"`
 
 	// name is the name of the plugin.
 	Name string `json:"name,omitempty"`
@@ -38,6 +41,28 @@ type Plugin struct {
 
 // Validate validates this plugin
 func (m *Plugin) Validate(formats strfmt.Registry) error {
+	var res []error
+
+	if err := m.validateInstalledAt(formats); err != nil {
+		res = append(res, err)
+	}
+
+	if len(res) > 0 {
+		return errors.CompositeValidationError(res...)
+	}
+	return nil
+}
+
+func (m *Plugin) validateInstalledAt(formats strfmt.Registry) error {
+
+	if swag.IsZero(m.InstalledAt) { // not required
+		return nil
+	}
+
+	if err := validate.FormatOf("installedAt", "body", "date-time", m.InstalledAt.String(), formats); err != nil {
+		return err
+	}
+
 	return nil
 }
 

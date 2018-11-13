@@ -74,13 +74,12 @@ func setupGlobalMiddleware(handler http.Handler) http.Handler {
 
 	//TODO fix CORS till release
 	corsHandler := cors.New(cors.Options{
-		Debug: false,
-		AllowedHeaders:[]string{"*"},
-		AllowedOrigins:[]string{"*"},
-		AllowedMethods:[]string{},
-		MaxAge:1000,
+		Debug:          false,
+		AllowedHeaders: []string{"*"},
+		AllowedOrigins: []string{"*"},
+		AllowedMethods: []string{},
+		MaxAge:         1000,
 	}).Handler(handlerWithRecovery)
-
 
 	handlerWithSwagger := swaggerMiddleware(corsHandler)
 

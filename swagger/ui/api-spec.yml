@@ -41,7 +41,7 @@ definitions:
         type: "string"
       installedAt:
         type: "string"
-        format: "dateTime"
+        format: "date-time"
         description: "date/Time the plugin was installed"
   checkResult:
     type: "object"
@@ -55,7 +55,7 @@ definitions:
         type: "string"
       completedAt:
         type: "string"
-        format: "dateTime"
+        format: "date-time"
         description: "date/Time of check execution"
       executionStatus:
         description: "shows check execution errors"

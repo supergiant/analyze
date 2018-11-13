@@ -25,7 +25,8 @@ type CheckResult struct {
 	CheckStatus string `json:"checkStatus,omitempty"`
 
 	// date/Time of check execution
-	CompletedAt string `json:"completedAt,omitempty"`
+	// Format: date-time
+	CompletedAt strfmt.DateTime `json:"completedAt,omitempty"`
 
 	// detailed check result description
 	Description string `json:"description,omitempty"`
@@ -48,6 +49,10 @@ func (m *CheckResult) Validate(formats strfmt.Registry) error {
 	var res []error
 
 	if err := m.validateCheckStatus(formats); err != nil {
+		res = append(res, err)
+	}
+
+	if err := m.validateCompletedAt(formats); err != nil {
 		res = append(res, err)
 	}
 
@@ -101,6 +106,19 @@ func (m *CheckResult) validateCheckStatus(formats strfmt.Registry) error {
 
 	// value enum
 	if err := m.validateCheckStatusEnum("checkStatus", "body", m.CheckStatus); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (m *CheckResult) validateCompletedAt(formats strfmt.Registry) error {
+
+	if swag.IsZero(m.CompletedAt) { // not required
+		return nil
+	}
+
+	if err := validate.FormatOf("completedAt", "body", "date-time", m.CompletedAt.String(), formats); err != nil {
 		return err
 	}
 

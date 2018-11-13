@@ -108,7 +108,7 @@ func init() {
         "completedAt": {
           "description": "date/Time of check execution",
           "type": "string",
-          "format": "dateTime"
+          "format": "date-time"
         },
         "description": {
           "description": "detailed check result description",
@@ -165,7 +165,7 @@ func init() {
         "installedAt": {
           "description": "date/Time the plugin was installed",
           "type": "string",
-          "format": "dateTime"
+          "format": "date-time"
         },
         "name": {
           "description": "name is the name of the plugin.",
@@ -288,7 +288,7 @@ func init() {
         "completedAt": {
           "description": "date/Time of check execution",
           "type": "string",
-          "format": "dateTime"
+          "format": "date-time"
         },
         "description": {
           "description": "detailed check result description",
@@ -345,7 +345,7 @@ func init() {
         "installedAt": {
           "description": "date/Time the plugin was installed",
           "type": "string",
-          "format": "dateTime"
+          "format": "date-time"
         },
         "name": {
           "description": "name is the name of the plugin.",
