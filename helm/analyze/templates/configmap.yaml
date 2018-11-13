@@ -1,7 +1,7 @@
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: default-config
+  name: analyze-config
 data:
   config.yaml: |
    logging:
@@ -9,7 +9,7 @@ data:
      formatter: TXT
    plugin:
      check_interval: 30s
-     check_timeout: 2s
+     check_timeout: 10s
      cloud_provider_type: {{ .Values.cloudProviderType }}
      aws_access_key_id: {{ .Values.aws.accessKeyId }}
      aws_secret_access_key: {{ .Values.aws.secretAccessKey }}

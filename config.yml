@@ -12,7 +12,7 @@ plugin:
   aws_secret_access_key: "put here your Secret access key"
   aws_region: "put here your aws region"
   check_interval: 30s
-  check_timeout: 2s
+  check_timeout: 10s
 
 etcd:
   endpoints:

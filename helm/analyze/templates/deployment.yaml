@@ -42,4 +42,4 @@ spec:
       volumes:
       - name: config-volume
         configMap:
-          name: default-config
+          name: analyze-config
