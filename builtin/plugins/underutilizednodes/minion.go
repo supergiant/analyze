@@ -7,14 +7,29 @@ import (
 
 // Minion struct represents k8s cluster worker node
 type Minion struct {
-	AWSZone           string
-	InstanceID        string
-	InstanceType      string
-	NonTerminatedPods []v1.Pod
-	Node              v1.Node
+	*AwsInstance
+	*KubeWorker
+}
 
-	cpuReqs, cpuLimits, memoryReqs, memoryLimits                                 resource.Quantity
-	fractionCpuReqs, fractionCpuLimits, fractionMemoryReqs, fractionMemoryLimits float64
+type AwsInstance struct {
+	Region       string
+	InstanceID   string
+	InstanceType string
+}
+
+type KubeWorker struct {
+	NonTerminatedPods []v1.Pod
+	Node              *v1.Node
+
+	cpuReqs      resource.Quantity
+	cpuLimits    resource.Quantity
+	memoryReqs   resource.Quantity
+	memoryLimits resource.Quantity
+
+	fractionCpuReqs      float64
+	fractionCpuLimits    float64
+	fractionMemoryReqs   float64
+	fractionMemoryLimits float64
 }
 
 func (m *Minion) RAMRequestedGiB() float64 {

@@ -2,10 +2,11 @@ package main
 
 import (
 	"context"
-	"github.com/go-openapi/strfmt"
 	"log"
 	"os"
 	"time"
+
+	"github.com/go-openapi/strfmt"
 
 	"github.com/golang/protobuf/ptypes/empty"
 

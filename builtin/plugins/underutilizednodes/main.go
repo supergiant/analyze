@@ -1,17 +1,18 @@
 package underutilizednodes
 
 import (
-	"encoding/json"
 	"fmt"
 	"strings"
 
+	"github.com/aws/aws-sdk-go-v2/aws/external"
+	"github.com/aws/aws-sdk-go-v2/service/ec2"
 	"github.com/aws/aws-sdk-go-v2/service/pricing"
+	"github.com/golang/protobuf/ptypes/any"
+	"github.com/pkg/errors"
+
 	"github.com/golang/protobuf/ptypes/empty"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
-	"github.com/aws/aws-sdk-go-v2/aws/external"
-	"github.com/aws/aws-sdk-go-v2/service/ec2"
-	"github.com/golang/protobuf/ptypes/any"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
 	corev1api "k8s.io/api/core/v1"
@@ -25,97 +26,47 @@ import (
 )
 
 type uuNodesPlugin struct {
-	config *proto.PluginConfig
+	config                 *proto.PluginConfig
+	computeInstancesPrices map[string][]priceItem
+}
+
+var checkResult = &proto.CheckResult{
+	ExecutionStatus: "OK",
+	Status:          proto.CheckStatus_UNKNOWN_CHECK_STATUS,
+	Name:            "Underutilized nodes sunsetting Check",
+	Description: &any.Any{
+		TypeUrl: "io.supergiant.analyze.plugin.requestslimitscheck",
+		Value:   []byte("Resources (CPU/RAM) total capacity and allocatable where checked on nodes of k8s cluster. Results:"),
+	},
+	Actions: []*proto.Action{
+		&proto.Action{
+			ActionId:    "1",
+			Description: "Dismiss notification",
+		},
+		&proto.Action{
+			ActionId:    "2",
+			Description: "Sunset nodes",
+		},
+	},
 }
 
 func NewPlugin() proto.PluginClient {
-	return &uuNodesPlugin{}
+	return &uuNodesPlugin{
+		computeInstancesPrices: make(map[string][]priceItem, 0),
+	}
 }
 
 func (u *uuNodesPlugin) Check(ctx context.Context, in *proto.CheckRequest, opts ...grpc.CallOption) (*proto.CheckResponse, error) {
-	// creates the in-cluster config
-	config, err := rest.InClusterConfig()
+	var minionsMap, err = u.getMinions()
 	if err != nil {
-		return nil, err
-	}
-	// creates the client
-	сoreV1Client, err := corev1.NewForConfig(config)
-	if err != nil {
-		return nil, err
-	}
-
-	var minions = []*Minion{}
-	var minionsMap = map[string]*Minion{}
-	var result = &proto.CheckResult{
-		ExecutionStatus: "OK",
-		Status:          proto.CheckStatus_UNKNOWN_CHECK_STATUS,
-		Name:            "Underutilized nodes sunsetting Check",
-		Description: &any.Any{
-			TypeUrl: "io.supergiant.analyze.plugin.requestslimitscheck",
-			Value:   []byte("Resources (CPU/RAM) total capacity and allocatable where checked on nodes of k8s cluster. Results:"),
-		},
-		Actions: []*proto.Action{
-			&proto.Action{
-				ActionId:    "1",
-				Description: "Dismiss notification",
-			},
-			&proto.Action{
-				ActionId:    "2",
-				Description: "Sunset nodes",
-			},
-		},
-	}
-
-	nodes, err := сoreV1Client.Nodes().List(metav1.ListOptions{})
-	if err != nil {
-		return nil, err
-	}
-
-	for _, node := range nodes.Items {
-		fieldSelector, err := fields.ParseSelector("spec.nodeName=" + node.Name + ",status.phase!=" + string(corev1api.PodSucceeded) + ",status.phase!=" + string(corev1api.PodFailed))
-		if err != nil {
-			return nil, err
-		}
-
-		nonTerminatedPodsList, err := сoreV1Client.Pods("").List(metav1.ListOptions{FieldSelector: fieldSelector.String()})
-		if err != nil {
-			return nil, err
-		}
-
-		var minion = &Minion{
-			NonTerminatedPods: nonTerminatedPodsList.Items,
-			Node:              node,
-		}
-
-		minion.AWSZone, minion.InstanceID = parseProviderID(node.Spec.ProviderID)
-
-		// calculate minions requests/limits
-		reqs, limits := getPodsTotalRequestsAndLimits(nonTerminatedPodsList)
-		minion.cpuReqs, minion.cpuLimits = reqs[corev1api.ResourceCPU], limits[corev1api.ResourceCPU]
-		minion.memoryReqs, minion.memoryLimits = reqs[corev1api.ResourceMemory], limits[corev1api.ResourceMemory]
-
-		var allocatable = node.Status.Capacity
-		if len(node.Status.Allocatable) > 0 {
-			allocatable = node.Status.Allocatable
-		}
-
-		if allocatable.Cpu().MilliValue() != 0 {
-			minion.fractionCpuReqs = float64(minion.cpuReqs.MilliValue()) / float64(allocatable.Cpu().MilliValue()) * 100
-			minion.fractionCpuLimits = float64(minion.cpuLimits.MilliValue()) / float64(allocatable.Cpu().MilliValue()) * 100
-		}
-
-		if allocatable.Memory().Value() != 0 {
-			minion.fractionMemoryReqs = float64(minion.memoryReqs.Value()) / float64(allocatable.Memory().Value()) * 100
-			minion.fractionMemoryLimits = float64(minion.memoryLimits.Value()) / float64(allocatable.Memory().Value()) * 100
-		}
-
-		minions = append(minions, minion)
-		minionsMap[minion.InstanceID] = minion
+		fmt.Printf("unable to get minions, %v", err)
+		return nil, errors.Wrap(err, "unable to get minions")
 	}
 
 	cfg, err := external.LoadDefaultAWSConfig()
 	if err != nil {
-		panic("unable to load SDK config, " + err.Error())
+		fmt.Printf("unable to load AWS SDK config,  %v", err)
+		return nil, errors.Wrap(err, "unable to load AWS SDK config")
 	}
 
 	var awsConfig = u.config.GetAwsConfig()
@@ -133,23 +84,22 @@ func (u *uuNodesPlugin) Check(ctx context.Context, in *proto.CheckRequest, opts 
 
 	describeInstancesResponse, err := instancesRequest.Send()
 	if err != nil {
-		fmt.Printf("failed to describe instances, %s, %v", cfg.Region, err)
+		fmt.Printf("failed to describe ec2 instances, %v", err)
+		return nil, errors.Wrap(err, "failed to describe ec2 instances")
 	}
 
-	if describeInstancesResponse != nil {
-		for _, r := range describeInstancesResponse.Reservations {
-			for _, i := range r.Instances {
-				if i.InstanceId == nil {
-					continue
-				}
-				var minion, exists = minionsMap[*i.InstanceId]
-				if !exists {
-					continue
-				}
-				var instanceType, _ = i.InstanceType.MarshalValue()
-				minion.InstanceType = instanceType
-
+	for _, instancesReservation := range describeInstancesResponse.Reservations {
+		for _, i := range instancesReservation.Instances {
+			if i.InstanceId == nil {
+				continue
 			}
+			var minion, exists = minionsMap[*i.InstanceId]
+			if !exists {
+				continue
+			}
+
+			var instanceType, _ = i.InstanceType.MarshalValue()
+			minion.InstanceType = instanceType
 		}
 	}
 
@@ -157,80 +107,8 @@ func (u *uuNodesPlugin) Check(ctx context.Context, in *proto.CheckRequest, opts 
 		fmt.Printf("minionID: %v, type: %s \n", minionID, minion.InstanceType)
 	}
 
-	// TODO bug in sdk?
-	cfg.Region = "us-east-1"
-	pricingService := pricing.New(cfg)
-	input := &pricing.DescribeServicesInput{
-		FormatVersion: aws.String("aws_v1"),
-		MaxResults:    aws.Int64(1),
-		ServiceCode:   aws.String("AmazonEC2"),
-	}
-	pricingRequest := pricingService.DescribeServicesRequest(input)
-	describePricingResponse, err := pricingRequest.Send()
-	if err != nil {
-		fmt.Printf("failed to describe pricing, %s, %v", cfg.Region, err)
-	}
-	if describePricingResponse != nil {
-		fmt.Printf("%+v \n", *describePricingResponse)
-	}
-
-	avInput := &pricing.GetAttributeValuesInput{
-		AttributeName: aws.String("location"),
-		MaxResults:    aws.Int64(100),
-		ServiceCode:   aws.String("AmazonEC2"),
-	}
-
-	avReq := pricingService.GetAttributeValuesRequest(avInput)
-	avResult, err := avReq.Send()
-	if err != nil {
-		fmt.Printf("failed to describe avResult, %s, %v", cfg.Region, err)
-	}
-	if avResult != nil {
-		fmt.Printf("%+v \n", *avResult)
-	}
-
-	productsInput := &pricing.GetProductsInput{
-		Filters: []pricing.Filter{
-			{
-				Field: aws.String("ServiceCode"),
-				Type:  pricing.FilterTypeTermMatch,
-				Value: aws.String("AmazonEC2"),
-			},
-			{
-				Field: aws.String("location"),
-				Type:  pricing.FilterTypeTermMatch,
-				Value: aws.String("US West (N. California)"), //TODO region to location???
-			},
-		},
-		FormatVersion: aws.String("aws_v1"),
-		MaxResults:    aws.Int64(100), //TODO: add pagination
-		ServiceCode:   aws.String("AmazonEC2"),
-	}
-
-	productsRequest := pricingService.GetProductsRequest(productsInput)
-	productsOutput, err := productsRequest.Send()
-	if err != nil {
-		fmt.Printf("failed to describe products, %s, %v", cfg.Region, err)
-	}
-	if productsOutput != nil {
-		for _, vv := range productsOutput.PriceList {
-			b, _ := json.Marshal(vv)
-			fmt.Printf("%s\n", string(b))
-		}
-	}
-
-	return &proto.CheckResponse{Result: result}, nil
+	return &proto.CheckResponse{Result: checkResult}, nil
 }
-
-//func printMap(in map[string]interface{}, prefix string) {
-//	for k, v := range in {
-//		if n, ok := v.(map[string]interface{}); ok {
-//				printMap(n, prefix + k)
-//		} else {
-//			fmt.Printf(prefix + " %s === %+v \n", k, v)
-//		}
-//	}
-//}
 
 // TODO: add checks and errors
 // for aws ProviderID has format - aws:///us-west-1b/i-0c912bfd4048b97e5
@@ -247,6 +125,9 @@ func (u *uuNodesPlugin) Action(ctx context.Context, in *proto.ActionRequest, opt
 func (u *uuNodesPlugin) Configure(ctx context.Context, in *proto.PluginConfig, opts ...grpc.CallOption) (*empty.Empty, error) {
 	u.config = in
 	//TODO: add here config validation in future
+
+	u.getPrices()
+
 	return nil, nil
 }
 
@@ -328,4 +209,289 @@ func maxResourceList(list, new corev1api.ResourceList) {
 			}
 		}
 	}
+}
+
+// TODO add checks and return error
+func getProduct(productItem aws.JSONValue) priceItem {
+	var pi = priceItem{}
+	productInterface, exists := productItem["product"]
+	if !exists {
+		fmt.Printf("product elemnt doesn't exist")
+		return pi
+	}
+
+	product, ok := productInterface.(map[string]interface{})
+	if !ok {
+		fmt.Printf("product elemnt is not map")
+		return pi
+	}
+
+	attributes, exists := product["attributes"]
+	if !exists {
+		fmt.Printf("product elemnt doesn't exist")
+		return pi
+	}
+
+	attrs, ok := attributes.(map[string]interface{})
+	if !ok {
+		fmt.Printf("attributes elemnt doesn't exist")
+		return pi
+	}
+
+	value := attrs["instanceType"]
+	pi.instanceType, _ = value.(string)
+	value = attrs["memory"]
+	pi.memory, _ = value.(string)
+	value = attrs["vcpu"]
+	pi.vcpu, _ = value.(string)
+	value = attrs["usagetype"]
+	pi.usageType, _ = value.(string)
+	value = attrs["tenancy"]
+	pi.tenancy, _ = value.(string)
+
+	termsInterface, exists := productItem["terms"]
+	if !exists {
+		fmt.Printf("terms elemnt doesn't exist")
+		return pi
+	}
+
+	terms, ok := termsInterface.(map[string]interface{})
+	if !ok {
+		fmt.Printf("terms elemnt is not map")
+		return pi
+	}
+
+	onDemandInterface, exists := terms["OnDemand"]
+	if !exists {
+		fmt.Printf("OnDemand elemnt doesn't exist")
+		return pi
+	}
+
+	onDemand, ok := onDemandInterface.(map[string]interface{})
+	if !ok {
+		fmt.Printf("onDemand elemnt is not map")
+		return pi
+	}
+
+	for _, skuValueInterface := range onDemand {
+		skuValue, ok := skuValueInterface.(map[string]interface{})
+		if !ok {
+			fmt.Printf("skuValue elemnt is not map")
+			return pi
+		}
+
+		priceDimensionsInterface, exists := skuValue["priceDimensions"]
+		if !exists {
+			fmt.Printf("priceDimensions elemnt doesn't exist")
+			return pi
+		}
+
+		priceDimensions, ok := priceDimensionsInterface.(map[string]interface{})
+		if !ok {
+			fmt.Printf("priceDimensions elemnt is not map")
+			return pi
+		}
+
+		for _, priceDimentionInterface := range priceDimensions {
+			priceDimention, ok := priceDimentionInterface.(map[string]interface{})
+			if !ok {
+				fmt.Printf("priceDimention elemnt is not map")
+				return pi
+			}
+
+			unitInterface, exists := priceDimention["unit"]
+			if !exists {
+				fmt.Printf("unit elemnt doesn't exist")
+				return pi
+			}
+
+			pi.unit, ok = unitInterface.(string)
+			if !ok {
+				fmt.Printf("unit elemnt is not string")
+				return pi
+			}
+
+			pricePerUnitInterface, exists := priceDimention["pricePerUnit"]
+			if !exists {
+				fmt.Printf("pricePerUnit elemnt doesn't exist")
+				return pi
+			}
+
+			pricePerUnit, ok := pricePerUnitInterface.(map[string]interface{})
+			if !ok {
+				fmt.Printf("pricePerUnit elemnt is not map")
+				return pi
+			}
+
+			for k, v := range pricePerUnit {
+				pi.currency = k
+
+				pi.valuePerUnit, ok = v.(string)
+				if !ok {
+					fmt.Printf("valuePerUnit elemnt is not map")
+					return pi
+				}
+				return pi
+			}
+
+		}
+	}
+
+	return pi
+}
+
+func (u *uuNodesPlugin) getPrices() {
+	cfg, err := external.LoadDefaultAWSConfig()
+	if err != nil {
+		panic("unable to load SDK config, " + err.Error())
+	}
+
+	var awsConfig = u.config.GetAwsConfig()
+
+	cfg.Credentials = aws.NewStaticCredentialsProvider(
+		awsConfig.GetAccessKeyId(),
+		awsConfig.GetSecretAccessKey(),
+		"",
+	)
+	cfg.Region = awsConfig.GetRegion()
+
+	// TODO bug in sdk?
+	cfg.Region = "us-east-1"
+	pricingService := pricing.New(cfg)
+
+	productsInput := &pricing.GetProductsInput{
+		Filters: []pricing.Filter{
+			{
+				Field: aws.String("ServiceCode"),
+				Type:  pricing.FilterTypeTermMatch,
+				Value: aws.String("AmazonEC2"),
+			},
+			{
+				Field: aws.String("productFamily"),
+				Type:  pricing.FilterTypeTermMatch,
+				Value: aws.String("Compute Instance"),
+			},
+			{
+				Field: aws.String("operatingSystem"),
+				Type:  pricing.FilterTypeTermMatch,
+				Value: aws.String("Linux"),
+			},
+			{
+				Field: aws.String("preInstalledSw"),
+				Type:  pricing.FilterTypeTermMatch,
+				Value: aws.String("NA"),
+			},
+			//TODO: FIRST PRIORITY FIX, to filter by usagetype "EC2: Running Hours"
+			//https://docs.aws.amazon.com/awsaccountbilling/latest/aboutv2/selectdim.html
+			//{
+			//	Field: aws.String("tenancy"),
+			//	Type:  pricing.FilterTypeTermMatch,
+			//	Value: aws.String("Shared"),
+			//},
+			{
+				Field: aws.String("location"),
+				Type:  pricing.FilterTypeTermMatch,
+				Value: aws.String(partitions[awsConfig.GetRegion()]), //TODO region to location??? bug, add PR to lib?
+			},
+		},
+		FormatVersion: aws.String("aws_v1"),
+		MaxResults:    aws.Int64(100), //TODO: add pagination
+		ServiceCode:   aws.String("AmazonEC2"),
+	}
+
+	productsRequest := pricingService.GetProductsRequest(productsInput)
+
+	productsPager := productsRequest.Paginate()
+	for productsPager.Next() {
+		page := productsPager.CurrentPage()
+
+		if page != nil {
+			for _, productItem := range page.PriceList {
+				//b, _ := json.Marshal(productItem)
+				var newPriceItem = getProduct(productItem)
+				//TODO: some prices even for usagetype HostBoxUsage equal to zero. need to fix it later
+				if newPriceItem.instanceType == "" || newPriceItem.memory == "" || newPriceItem.vcpu == "" || newPriceItem.valuePerUnit == "0.0000000000" {
+					//b, _ := json.Marshal(productItem)
+					//fmt.Printf("%s\n", b)
+				}
+				_, exists := u.computeInstancesPrices[newPriceItem.instanceType]
+				if !exists {
+					u.computeInstancesPrices[newPriceItem.instanceType] = make([]priceItem, 0, 0)
+				}
+				u.computeInstancesPrices[newPriceItem.instanceType] = append(u.computeInstancesPrices[newPriceItem.instanceType], newPriceItem)
+			}
+		}
+	}
+
+	if err = productsPager.Err(); err != nil {
+		fmt.Printf("failed to describe products, %v", err)
+	}
+
+	fmt.Printf("found product prices: %v\n", len(u.computeInstancesPrices))
+}
+
+func (u *uuNodesPlugin) getMinions() (map[string]*Minion, error) {
+	// creates the in-cluster config
+	config, err := rest.InClusterConfig()
+	if err != nil {
+		return nil, err
+	}
+	// creates the client
+	сoreV1Client, err := corev1.NewForConfig(config)
+	if err != nil {
+		return nil, err
+	}
+
+	var minionsMap = map[string]*Minion{}
+
+	nodes, err := сoreV1Client.Nodes().List(metav1.ListOptions{})
+	if err != nil {
+		return nil, err
+	}
+
+	for _, node := range nodes.Items {
+		fieldSelector, err := fields.ParseSelector("spec.nodeName=" + node.Name + ",status.phase!=" + string(corev1api.PodSucceeded) + ",status.phase!=" + string(corev1api.PodFailed))
+		if err != nil {
+			return nil, err
+		}
+
+		nonTerminatedPodsList, err := сoreV1Client.Pods("").List(metav1.ListOptions{FieldSelector: fieldSelector.String()})
+		if err != nil {
+			return nil, err
+		}
+
+		var minion = &Minion{
+			AwsInstance: &AwsInstance{},
+			KubeWorker: &KubeWorker{
+				NonTerminatedPods: nonTerminatedPodsList.Items,
+				Node:              &node,
+			},
+		}
+
+		minion.Region, minion.InstanceID = parseProviderID(node.Spec.ProviderID)
+
+		// calculate minions requests/limits
+		reqs, limits := getPodsTotalRequestsAndLimits(nonTerminatedPodsList)
+		minion.cpuReqs, minion.cpuLimits = reqs[corev1api.ResourceCPU], limits[corev1api.ResourceCPU]
+		minion.memoryReqs, minion.memoryLimits = reqs[corev1api.ResourceMemory], limits[corev1api.ResourceMemory]
+
+		var allocatable = node.Status.Capacity
+		if len(node.Status.Allocatable) > 0 {
+			allocatable = node.Status.Allocatable
+		}
+
+		if allocatable.Cpu().MilliValue() != 0 {
+			minion.fractionCpuReqs = float64(minion.cpuReqs.MilliValue()) / float64(allocatable.Cpu().MilliValue()) * 100
+			minion.fractionCpuLimits = float64(minion.cpuLimits.MilliValue()) / float64(allocatable.Cpu().MilliValue()) * 100
+		}
+
+		if allocatable.Memory().Value() != 0 {
+			minion.fractionMemoryReqs = float64(minion.memoryReqs.Value()) / float64(allocatable.Memory().Value()) * 100
+			minion.fractionMemoryLimits = float64(minion.memoryLimits.Value()) / float64(allocatable.Memory().Value()) * 100
+		}
+
+		minionsMap[minion.InstanceID] = minion
+	}
+
+	return minionsMap, nil
 }
