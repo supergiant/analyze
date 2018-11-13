@@ -1,4 +1,5 @@
 <mat-card class="check-item" *ngFor="let check of (checks$ | async)">
+  <!-- TODO date to timestamp-->
   <mat-card-title>
     {{ check.name }}
     {{ check.completedAt | date: 'medium' }}
@@ -79,8 +80,6 @@
         </td>
       </tr>
 
-      </td>
-      </tr>
     </table>
   </div>
   <span *ngFor="let check of check.possibleActions as action">
