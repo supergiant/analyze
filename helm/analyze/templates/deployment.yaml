@@ -23,17 +23,16 @@ spec:
     spec:
       containers:
         - name: {{ .Chart.Name }}
-          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          image: {{ .Values.image.repository }}:{{ .Values.image.tag }}
           imagePullPolicy: {{ .Values.image.pullPolicy }}
-          env:
-            {{- if .Values.etcd.enable }}
-            - name: ETCD_DISCOVERY_DOMAIN
-              value: {{default (printf "%s-etcd" .Release.Name | trunc 63) .Values.etcd.discovery }}
-            {{- end }}
           ports:
             - name: http
               containerPort: 80
               protocol: TCP
+          resources:
+            requests:
+              cpu: {{ .Values.resources.requests.cpu }}
+              memory: {{ .Values.resources.requests.memory }}
           volumeMounts:
               - name: config-volume
                 mountPath: "/etc/analyzed"
