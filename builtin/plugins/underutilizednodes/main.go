@@ -1,7 +1,9 @@
 package underutilizednodes
 
 import (
+	"encoding/json"
 	"fmt"
+	"sort"
 	"strings"
 
 	"github.com/aws/aws-sdk-go-v2/aws/external"
@@ -57,43 +59,26 @@ func NewPlugin() proto.PluginClient {
 }
 
 func (u *uuNodesPlugin) Check(ctx context.Context, in *proto.CheckRequest, opts ...grpc.CallOption) (*proto.CheckResponse, error) {
-	var minionsMap, err = u.getMinions()
+	var instanceEntries, err = u.getInstanceEntries()
 	if err != nil {
-		fmt.Printf("unable to get minions, %v", err)
-		return nil, errors.Wrap(err, "unable to get minions")
+		fmt.Printf("unable to get instanceEntries, %v", err)
+		return nil, errors.Wrap(err, "unable to get instanceEntries")
 	}
 
-	cfg, err := external.LoadDefaultAWSConfig()
-	if err != nil {
-		fmt.Printf("unable to load AWS SDK config,  %v", err)
-		return nil, errors.Wrap(err, "unable to load AWS SDK config")
-	}
-
-	var awsConfig = u.config.GetAwsConfig()
-
-	cfg.Credentials = aws.NewStaticCredentialsProvider(
-		awsConfig.GetAccessKeyId(),
-		awsConfig.GetSecretAccessKey(),
-		"",
-	)
-	cfg.Region = awsConfig.GetRegion()
-
-	ec2Service := ec2.New(cfg)
-
-	instancesRequest := ec2Service.DescribeInstancesRequest(nil)
-
-	describeInstancesResponse, err := instancesRequest.Send()
+	ec2Reservations, err := u.getEC2Reservations()
 	if err != nil {
 		fmt.Printf("failed to describe ec2 instances, %v", err)
 		return nil, errors.Wrap(err, "failed to describe ec2 instances")
 	}
 
-	for _, instancesReservation := range describeInstancesResponse.Reservations {
+
+	// enrich instanceEntries with ec2 instance type info
+	for _, instancesReservation := range ec2Reservations {
 		for _, i := range instancesReservation.Instances {
 			if i.InstanceId == nil {
 				continue
 			}
-			var minion, exists = minionsMap[*i.InstanceId]
+			var minion, exists = instanceEntries[*i.InstanceId]
 			if !exists {
 				continue
 			}
@@ -103,10 +88,24 @@ func (u *uuNodesPlugin) Check(ctx context.Context, in *proto.CheckRequest, opts 
 		}
 	}
 
-	for minionID, minion := range minionsMap {
-		fmt.Printf("minionID: %v, type: %s \n", minionID, minion.InstanceType)
+	var unsortedEntires []*InstanceEntry
+
+	for _, entry := range instanceEntries {
+		unsortedEntires = append(unsortedEntires, entry)
 	}
 
+	sortedByWastedRam := EntriesByWastedRAM(unsortedEntires)
+	sort.Sort(sortedByWastedRam)
+
+	fmt.Printf("sortedByWastedRam:, %v", sortedByWastedRam)
+
+	b, _ := json.Marshal(sortedByWastedRam)
+
+	checkResult.Description = &any.Any{
+		TypeUrl:              "test",
+		Value:                b,
+	}
+	checkResult.Status = proto.CheckStatus_GREEN
 	return &proto.CheckResponse{Result: checkResult}, nil
 }
 
@@ -430,7 +429,7 @@ func (u *uuNodesPlugin) getPrices() {
 	fmt.Printf("found product prices: %v\n", len(u.computeInstancesPrices))
 }
 
-func (u *uuNodesPlugin) getMinions() (map[string]*Minion, error) {
+func (u *uuNodesPlugin) getInstanceEntries() (map[string]*InstanceEntry, error) {
 	// creates the in-cluster config
 	config, err := rest.InClusterConfig()
 	if err != nil {
@@ -442,7 +441,7 @@ func (u *uuNodesPlugin) getMinions() (map[string]*Minion, error) {
 		return nil, err
 	}
 
-	var minionsMap = map[string]*Minion{}
+	var instanceEntries = map[string]*InstanceEntry{}
 
 	nodes, err := сoreV1Client.Nodes().List(metav1.ListOptions{})
 	if err != nil {
@@ -460,38 +459,71 @@ func (u *uuNodesPlugin) getMinions() (map[string]*Minion, error) {
 			return nil, err
 		}
 
-		var minion = &Minion{
+		var entry = &InstanceEntry{
 			AwsInstance: &AwsInstance{},
 			KubeWorker: &KubeWorker{
-				NonTerminatedPods: nonTerminatedPodsList.Items,
-				Node:              &node,
+				Name: node.Name,
 			},
 		}
 
-		minion.Region, minion.InstanceID = parseProviderID(node.Spec.ProviderID)
+		entry.Region, entry.InstanceID = parseProviderID(node.Spec.ProviderID)
 
 		// calculate minions requests/limits
 		reqs, limits := getPodsTotalRequestsAndLimits(nonTerminatedPodsList)
-		minion.cpuReqs, minion.cpuLimits = reqs[corev1api.ResourceCPU], limits[corev1api.ResourceCPU]
-		minion.memoryReqs, minion.memoryLimits = reqs[corev1api.ResourceMemory], limits[corev1api.ResourceMemory]
+		cpuReqs, cpuLimits := reqs[corev1api.ResourceCPU], limits[corev1api.ResourceCPU]
+		memoryReqs, memoryLimits := reqs[corev1api.ResourceMemory], limits[corev1api.ResourceMemory]
+
+		entry.CpuReqs, entry.CpuLimits = cpuReqs.MilliValue(), cpuLimits.MilliValue()
+		entry.MemoryReqs, entry.MemoryLimits = memoryReqs.Value(), memoryLimits.Value()
 
 		var allocatable = node.Status.Capacity
 		if len(node.Status.Allocatable) > 0 {
 			allocatable = node.Status.Allocatable
 		}
 
-		if allocatable.Cpu().MilliValue() != 0 {
-			minion.fractionCpuReqs = float64(minion.cpuReqs.MilliValue()) / float64(allocatable.Cpu().MilliValue()) * 100
-			minion.fractionCpuLimits = float64(minion.cpuLimits.MilliValue()) / float64(allocatable.Cpu().MilliValue()) * 100
+		entry.AllocatableCpu = allocatable.Cpu().MilliValue()
+		entry.AllocatableMemory = allocatable.Memory().Value()
+
+		if entry.AllocatableCpu != 0 {
+			entry.FractionCpuReqs = float64(entry.CpuReqs) / float64(entry.AllocatableCpu) * 100
+			entry.FractionCpuLimits = float64(entry.CpuLimits) / float64(entry.AllocatableCpu) * 100
 		}
 
-		if allocatable.Memory().Value() != 0 {
-			minion.fractionMemoryReqs = float64(minion.memoryReqs.Value()) / float64(allocatable.Memory().Value()) * 100
-			minion.fractionMemoryLimits = float64(minion.memoryLimits.Value()) / float64(allocatable.Memory().Value()) * 100
+		if entry.AllocatableMemory != 0 {
+			entry.FractionMemoryReqs = float64(entry.MemoryReqs) / float64(entry.AllocatableMemory) * 100
+			entry.FractionMemoryLimits = float64(entry.MemoryLimits) / float64(entry.AllocatableMemory) * 100
 		}
 
-		minionsMap[minion.InstanceID] = minion
+		instanceEntries[entry.InstanceID] = entry
 	}
 
-	return minionsMap, nil
+	return instanceEntries, nil
+}
+
+func (u *uuNodesPlugin) getEC2Reservations() ([]ec2.RunInstancesOutput, error) {
+	cfg, err := external.LoadDefaultAWSConfig()
+	if err != nil {
+		fmt.Printf("unable to load AWS SDK config,  %v", err)
+		return nil, errors.Wrap(err, "unable to load AWS SDK config")
+	}
+
+	var awsConfig = u.config.GetAwsConfig()
+
+	cfg.Credentials = aws.NewStaticCredentialsProvider(
+		awsConfig.GetAccessKeyId(),
+		awsConfig.GetSecretAccessKey(),
+		"",
+	)
+	cfg.Region = awsConfig.GetRegion()
+
+	ec2Service := ec2.New(cfg)
+
+	instancesRequest := ec2Service.DescribeInstancesRequest(nil)
+
+	describeInstancesResponse, err := instancesRequest.Send()
+	if err != nil {
+		return nil, err
+	}
+
+	return describeInstancesResponse.Reservations, nil
 }
