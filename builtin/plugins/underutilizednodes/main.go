@@ -3,18 +3,15 @@ package underutilizednodes
 import (
 	"encoding/json"
 	"fmt"
-	"sort"
 	"strings"
 
+	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/aws/external"
 	"github.com/aws/aws-sdk-go-v2/service/ec2"
 	"github.com/aws/aws-sdk-go-v2/service/pricing"
 	"github.com/golang/protobuf/ptypes/any"
-	"github.com/pkg/errors"
-
 	"github.com/golang/protobuf/ptypes/empty"
-
-	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/pkg/errors"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
 	corev1api "k8s.io/api/core/v1"
@@ -71,7 +68,6 @@ func (u *uuNodesPlugin) Check(ctx context.Context, in *proto.CheckRequest, opts 
 		return nil, errors.Wrap(err, "failed to describe ec2 instances")
 	}
 
-
 	// enrich instanceEntries with ec2 instance type info
 	for _, instancesReservation := range ec2Reservations {
 		for _, i := range instancesReservation.Instances {
@@ -94,19 +90,42 @@ func (u *uuNodesPlugin) Check(ctx context.Context, in *proto.CheckRequest, opts 
 		unsortedEntires = append(unsortedEntires, entry)
 	}
 
-	sortedByWastedRam := EntriesByWastedRAM(unsortedEntires)
-	sort.Sort(sortedByWastedRam)
+	var sortedByWastedRam = newSortedEntriesByWastedRAM(unsortedEntires)
+	var sortedByRequestedRam = newSortedEntriesByRequestedRAM(unsortedEntires)
+
+	var res = matchAllPodsCheck(sortedByWastedRam)
 
 	fmt.Printf("sortedByWastedRam:, %v", sortedByWastedRam)
+	fmt.Printf("sortedByRequestedRam:, %v", sortedByRequestedRam)
 
-	b, _ := json.Marshal(sortedByWastedRam)
+	b, _ := json.Marshal(res)
 
 	checkResult.Description = &any.Any{
-		TypeUrl:              "test",
-		Value:                b,
+		TypeUrl: "test",
+		Value:   b,
 	}
 	checkResult.Status = proto.CheckStatus_GREEN
 	return &proto.CheckResponse{Result: checkResult}, nil
+}
+
+func matchAllPodsCheck(entriesByWastedRam EntriesByWastedRAM) InstancesToSunset {
+	var res = make(InstancesToSunset, 0)
+
+	for _, maxWatedRamEntry := range entriesByWastedRam {
+		for i := len(entriesByWastedRam) - 1; i > 0; i-- {
+			// check that all requested memory of instance can be moved to another instance
+			var wastedRam = entriesByWastedRam[i].AllocatableMemory - entriesByWastedRam[i].MemoryReqs
+			if maxWatedRamEntry.MemoryReqs <= wastedRam {
+				//sunset this instance
+				res = append(res, maxWatedRamEntry)
+				//change memory requests of node which receive all workload
+				entriesByWastedRam[i].MemoryReqs = entriesByWastedRam[i].MemoryReqs + maxWatedRamEntry.MemoryReqs
+				break
+			}
+		}
+	}
+
+	return res
 }
 
 // TODO: add checks and errors
