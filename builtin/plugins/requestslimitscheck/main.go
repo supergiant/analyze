@@ -23,18 +23,18 @@ type resourceRequirementsPlugin struct {
 
 // TODO: this addition is till MVP, need to think and redesign while pluggability implementation
 type checkResponse struct {
-	description string
-	Nodes       []nodeResourceRequirements
+	Description               string
+	NodesResourceRequirements []nodeResourceRequirements
 }
 
 type nodeResourceRequirements struct {
-	NodeName string
-	Pods     []podResourceRequirements
+	NodeName                string
+	PodResourceRequirements []podResourceRequirements
 }
 
 type podResourceRequirements struct {
-	PodName    string
-	Containers []containerResourceRequirements
+	PodName                        string
+	ContainersResourceRequirements []containerResourceRequirements
 }
 
 type containerResourceRequirements struct {
@@ -97,8 +97,8 @@ func (u *resourceRequirementsPlugin) Check(ctx context.Context, in *proto.CheckR
 	}
 
 	var descriptionValue = &checkResponse{
-		description: "Resources (CPU/RAM) requests and limits where checked on nodes of k8s cluster.",
-		Nodes:       make([]nodeResourceRequirements, 0, len(nodes.Items)),
+		Description:               "Resources (CPU/RAM) requests and limits where checked on nodes of k8s cluster.",
+		NodesResourceRequirements: make([]nodeResourceRequirements, 0, len(nodes.Items)),
 	}
 
 	for _, node := range nodes.Items {
@@ -119,25 +119,25 @@ func (u *resourceRequirementsPlugin) Check(ctx context.Context, in *proto.CheckR
 			}
 		}
 		var nodeDesc = nodeResourceRequirements{
-			NodeName: node.Name,
-			Pods:     make([]podResourceRequirements, 0, len(pods.Items)),
+			NodeName:                node.Name,
+			PodResourceRequirements: make([]podResourceRequirements, 0, len(pods.Items)),
 		}
 
 		for _, pod := range pods.Items {
 			var podDescription = podResourceRequirements{
-				PodName:    pod.Name,
-				Containers: make([]containerResourceRequirements, 0, len(pod.Spec.Containers)),
+				PodName:                        pod.Name,
+				ContainersResourceRequirements: make([]containerResourceRequirements, 0, len(pod.Spec.Containers)),
 			}
 
 			for _, container := range pod.Spec.Containers {
 				resourceRequirementDescription, status := describeResourceRequirements(container)
-				podDescription.Containers = append(podDescription.Containers, resourceRequirementDescription)
+				podDescription.ContainersResourceRequirements = append(podDescription.ContainersResourceRequirements, resourceRequirementDescription)
 				setHigher(result, status)
 			}
-			nodeDesc.Pods = append(nodeDesc.Pods, podDescription)
+			nodeDesc.PodResourceRequirements = append(nodeDesc.PodResourceRequirements, podDescription)
 		}
 
-		descriptionValue.Nodes = append(descriptionValue.Nodes, nodeDesc)
+		descriptionValue.NodesResourceRequirements = append(descriptionValue.NodesResourceRequirements, nodeDesc)
 	}
 
 	bytes, err := json.Marshal(descriptionValue)

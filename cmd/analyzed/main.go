@@ -6,9 +6,12 @@ import (
 	"os"
 	"time"
 
+	"github.com/go-openapi/loads"
 	"github.com/go-openapi/strfmt"
-
 	"github.com/golang/protobuf/ptypes/empty"
+	"github.com/pkg/errors"
+	"github.com/sirupsen/logrus"
+	"github.com/spf13/cobra"
 
 	"github.com/supergiant/robot"
 	"github.com/supergiant/robot/builtin/plugins/requestslimitscheck"
@@ -24,11 +27,6 @@ import (
 	"github.com/supergiant/robot/pkg/scheduler"
 	"github.com/supergiant/robot/pkg/storage"
 	"github.com/supergiant/robot/pkg/storage/etcd"
-
-	"github.com/go-openapi/loads"
-	"github.com/pkg/errors"
-	"github.com/sirupsen/logrus"
-	"github.com/spf13/cobra"
 )
 
 func main() {

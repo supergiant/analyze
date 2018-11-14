@@ -21,12 +21,17 @@ import (
 	corev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 	"k8s.io/client-go/rest"
 
+	"github.com/supergiant/robot/builtin/plugins/underutilizednodes/checks"
+	"github.com/supergiant/robot/builtin/plugins/underutilizednodes/models"
+	"github.com/supergiant/robot/builtin/plugins/underutilizednodes/prices"
 	"github.com/supergiant/robot/pkg/plugin/proto"
 )
 
-type uuNodesPlugin struct {
-	config                 *proto.PluginConfig
-	computeInstancesPrices map[string][]priceItem
+type plugin struct {
+	config     *proto.PluginConfig
+	ec2Service *ec2.EC2
+
+	computeInstancesPrices map[string][]models.PriceItem
 }
 
 var checkResult = &proto.CheckResult{
@@ -50,12 +55,10 @@ var checkResult = &proto.CheckResult{
 }
 
 func NewPlugin() proto.PluginClient {
-	return &uuNodesPlugin{
-		computeInstancesPrices: make(map[string][]priceItem, 0),
-	}
+	return &plugin{}
 }
 
-func (u *uuNodesPlugin) Check(ctx context.Context, in *proto.CheckRequest, opts ...grpc.CallOption) (*proto.CheckResponse, error) {
+func (u *plugin) Check(ctx context.Context, in *proto.CheckRequest, opts ...grpc.CallOption) (*proto.CheckResponse, error) {
 	var instanceEntries, err = u.getInstanceEntries()
 	if err != nil {
 		fmt.Printf("unable to get instanceEntries, %v", err)
@@ -84,21 +87,18 @@ func (u *uuNodesPlugin) Check(ctx context.Context, in *proto.CheckRequest, opts 
 		}
 	}
 
-	var unsortedEntires []*InstanceEntry
+	var unsortedEntires []*models.InstanceEntry
 
 	for _, entry := range instanceEntries {
 		unsortedEntires = append(unsortedEntires, entry)
 	}
 
-	var sortedByWastedRam = newSortedEntriesByWastedRAM(unsortedEntires)
-	var sortedByRequestedRam = newSortedEntriesByRequestedRAM(unsortedEntires)
+	var sortedByWastedRam = models.NewSortedEntriesByWastedRAM(unsortedEntires)
+	//var sortedByRequestedRam = models.NewSortedEntriesByRequestedRAM(unsortedEntires)
 
-	var res = matchAllPodsCheck(sortedByWastedRam)
+	var instancesToSunset = checks.AllPodsAtATime(sortedByWastedRam)
 
-	fmt.Printf("sortedByWastedRam:, %v", sortedByWastedRam)
-	fmt.Printf("sortedByRequestedRam:, %v", sortedByRequestedRam)
-
-	b, _ := json.Marshal(res)
+	b, _ := json.Marshal(instancesToSunset)
 
 	checkResult.Description = &any.Any{
 		TypeUrl: "test",
@@ -106,26 +106,6 @@ func (u *uuNodesPlugin) Check(ctx context.Context, in *proto.CheckRequest, opts 
 	}
 	checkResult.Status = proto.CheckStatus_GREEN
 	return &proto.CheckResponse{Result: checkResult}, nil
-}
-
-func matchAllPodsCheck(entriesByWastedRam EntriesByWastedRAM) InstancesToSunset {
-	var res = make(InstancesToSunset, 0)
-
-	for _, maxWatedRamEntry := range entriesByWastedRam {
-		for i := len(entriesByWastedRam) - 1; i > 0; i-- {
-			// check that all requested memory of instance can be moved to another instance
-			var wastedRam = entriesByWastedRam[i].AllocatableMemory - entriesByWastedRam[i].MemoryReqs
-			if maxWatedRamEntry.MemoryReqs <= wastedRam {
-				//sunset this instance
-				res = append(res, maxWatedRamEntry)
-				//change memory requests of node which receive all workload
-				entriesByWastedRam[i].MemoryReqs = entriesByWastedRam[i].MemoryReqs + maxWatedRamEntry.MemoryReqs
-				break
-			}
-		}
-	}
-
-	return res
 }
 
 // TODO: add checks and errors
@@ -136,24 +116,45 @@ func parseProviderID(providerID string) (string, string) {
 	return ss[0], ss[1]
 }
 
-func (u *uuNodesPlugin) Action(ctx context.Context, in *proto.ActionRequest, opts ...grpc.CallOption) (*proto.ActionResponse, error) {
+func (u *plugin) Action(ctx context.Context, in *proto.ActionRequest, opts ...grpc.CallOption) (*proto.ActionResponse, error) {
 	panic("implement me")
 }
 
-func (u *uuNodesPlugin) Configure(ctx context.Context, in *proto.PluginConfig, opts ...grpc.CallOption) (*empty.Empty, error) {
+func (u *plugin) Configure(ctx context.Context, in *proto.PluginConfig, opts ...grpc.CallOption) (*empty.Empty, error) {
 	u.config = in
 	//TODO: add here config validation in future
 
-	u.getPrices()
+	cfg, err := external.LoadDefaultAWSConfig()
+	if err != nil {
+		fmt.Printf("unable to load AWS SDK config,  %v", err)
+		return nil, errors.Wrap(err, "unable to load AWS SDK config")
+	}
+
+	var awsConfig = u.config.GetAwsConfig()
+	cfg.Region = awsConfig.GetRegion()
+	// TODO bug in sdk?
+	cfg.Region = "us-east-1"
+	var pricingService = pricing.New(cfg)
+
+	//TODO may be add some init method to plugin?
+	u.computeInstancesPrices = prices.Get(pricingService, cfg.Region)
+
+	cfg.Credentials = aws.NewStaticCredentialsProvider(
+		awsConfig.GetAccessKeyId(),
+		awsConfig.GetSecretAccessKey(),
+		"",
+	)
+	cfg.Region = awsConfig.GetRegion()
+	u.ec2Service = ec2.New(cfg)
 
 	return nil, nil
 }
 
-func (u *uuNodesPlugin) Stop(ctx context.Context, in *proto.Stop_Request, opts ...grpc.CallOption) (*proto.Stop_Response, error) {
+func (u *plugin) Stop(ctx context.Context, in *proto.Stop_Request, opts ...grpc.CallOption) (*proto.Stop_Response, error) {
 	panic("implement me")
 }
 
-func (u *uuNodesPlugin) Info(ctx context.Context, in *empty.Empty, opts ...grpc.CallOption) (*proto.PluginInfo, error) {
+func (u *plugin) Info(ctx context.Context, in *empty.Empty, opts ...grpc.CallOption) (*proto.PluginInfo, error) {
 	return &proto.PluginInfo{
 		Id:          "supergiant-underutilized-nodes-plugin",
 		Version:     "v0.0.1",
@@ -229,226 +230,7 @@ func maxResourceList(list, new corev1api.ResourceList) {
 	}
 }
 
-// TODO add checks and return error
-func getProduct(productItem aws.JSONValue) priceItem {
-	var pi = priceItem{}
-	productInterface, exists := productItem["product"]
-	if !exists {
-		fmt.Printf("product elemnt doesn't exist")
-		return pi
-	}
-
-	product, ok := productInterface.(map[string]interface{})
-	if !ok {
-		fmt.Printf("product elemnt is not map")
-		return pi
-	}
-
-	attributes, exists := product["attributes"]
-	if !exists {
-		fmt.Printf("product elemnt doesn't exist")
-		return pi
-	}
-
-	attrs, ok := attributes.(map[string]interface{})
-	if !ok {
-		fmt.Printf("attributes elemnt doesn't exist")
-		return pi
-	}
-
-	value := attrs["instanceType"]
-	pi.instanceType, _ = value.(string)
-	value = attrs["memory"]
-	pi.memory, _ = value.(string)
-	value = attrs["vcpu"]
-	pi.vcpu, _ = value.(string)
-	value = attrs["usagetype"]
-	pi.usageType, _ = value.(string)
-	value = attrs["tenancy"]
-	pi.tenancy, _ = value.(string)
-
-	termsInterface, exists := productItem["terms"]
-	if !exists {
-		fmt.Printf("terms elemnt doesn't exist")
-		return pi
-	}
-
-	terms, ok := termsInterface.(map[string]interface{})
-	if !ok {
-		fmt.Printf("terms elemnt is not map")
-		return pi
-	}
-
-	onDemandInterface, exists := terms["OnDemand"]
-	if !exists {
-		fmt.Printf("OnDemand elemnt doesn't exist")
-		return pi
-	}
-
-	onDemand, ok := onDemandInterface.(map[string]interface{})
-	if !ok {
-		fmt.Printf("onDemand elemnt is not map")
-		return pi
-	}
-
-	for _, skuValueInterface := range onDemand {
-		skuValue, ok := skuValueInterface.(map[string]interface{})
-		if !ok {
-			fmt.Printf("skuValue elemnt is not map")
-			return pi
-		}
-
-		priceDimensionsInterface, exists := skuValue["priceDimensions"]
-		if !exists {
-			fmt.Printf("priceDimensions elemnt doesn't exist")
-			return pi
-		}
-
-		priceDimensions, ok := priceDimensionsInterface.(map[string]interface{})
-		if !ok {
-			fmt.Printf("priceDimensions elemnt is not map")
-			return pi
-		}
-
-		for _, priceDimentionInterface := range priceDimensions {
-			priceDimention, ok := priceDimentionInterface.(map[string]interface{})
-			if !ok {
-				fmt.Printf("priceDimention elemnt is not map")
-				return pi
-			}
-
-			unitInterface, exists := priceDimention["unit"]
-			if !exists {
-				fmt.Printf("unit elemnt doesn't exist")
-				return pi
-			}
-
-			pi.unit, ok = unitInterface.(string)
-			if !ok {
-				fmt.Printf("unit elemnt is not string")
-				return pi
-			}
-
-			pricePerUnitInterface, exists := priceDimention["pricePerUnit"]
-			if !exists {
-				fmt.Printf("pricePerUnit elemnt doesn't exist")
-				return pi
-			}
-
-			pricePerUnit, ok := pricePerUnitInterface.(map[string]interface{})
-			if !ok {
-				fmt.Printf("pricePerUnit elemnt is not map")
-				return pi
-			}
-
-			for k, v := range pricePerUnit {
-				pi.currency = k
-
-				pi.valuePerUnit, ok = v.(string)
-				if !ok {
-					fmt.Printf("valuePerUnit elemnt is not map")
-					return pi
-				}
-				return pi
-			}
-
-		}
-	}
-
-	return pi
-}
-
-func (u *uuNodesPlugin) getPrices() {
-	cfg, err := external.LoadDefaultAWSConfig()
-	if err != nil {
-		panic("unable to load SDK config, " + err.Error())
-	}
-
-	var awsConfig = u.config.GetAwsConfig()
-
-	cfg.Credentials = aws.NewStaticCredentialsProvider(
-		awsConfig.GetAccessKeyId(),
-		awsConfig.GetSecretAccessKey(),
-		"",
-	)
-	cfg.Region = awsConfig.GetRegion()
-
-	// TODO bug in sdk?
-	cfg.Region = "us-east-1"
-	pricingService := pricing.New(cfg)
-
-	productsInput := &pricing.GetProductsInput{
-		Filters: []pricing.Filter{
-			{
-				Field: aws.String("ServiceCode"),
-				Type:  pricing.FilterTypeTermMatch,
-				Value: aws.String("AmazonEC2"),
-			},
-			{
-				Field: aws.String("productFamily"),
-				Type:  pricing.FilterTypeTermMatch,
-				Value: aws.String("Compute Instance"),
-			},
-			{
-				Field: aws.String("operatingSystem"),
-				Type:  pricing.FilterTypeTermMatch,
-				Value: aws.String("Linux"),
-			},
-			{
-				Field: aws.String("preInstalledSw"),
-				Type:  pricing.FilterTypeTermMatch,
-				Value: aws.String("NA"),
-			},
-			//TODO: FIRST PRIORITY FIX, to filter by usagetype "EC2: Running Hours"
-			//https://docs.aws.amazon.com/awsaccountbilling/latest/aboutv2/selectdim.html
-			//{
-			//	Field: aws.String("tenancy"),
-			//	Type:  pricing.FilterTypeTermMatch,
-			//	Value: aws.String("Shared"),
-			//},
-			{
-				Field: aws.String("location"),
-				Type:  pricing.FilterTypeTermMatch,
-				Value: aws.String(partitions[awsConfig.GetRegion()]), //TODO region to location??? bug, add PR to lib?
-			},
-		},
-		FormatVersion: aws.String("aws_v1"),
-		MaxResults:    aws.Int64(100), //TODO: add pagination
-		ServiceCode:   aws.String("AmazonEC2"),
-	}
-
-	productsRequest := pricingService.GetProductsRequest(productsInput)
-
-	productsPager := productsRequest.Paginate()
-	for productsPager.Next() {
-		page := productsPager.CurrentPage()
-
-		if page != nil {
-			for _, productItem := range page.PriceList {
-				//b, _ := json.Marshal(productItem)
-				var newPriceItem = getProduct(productItem)
-				//TODO: some prices even for usagetype HostBoxUsage equal to zero. need to fix it later
-				if newPriceItem.instanceType == "" || newPriceItem.memory == "" || newPriceItem.vcpu == "" || newPriceItem.valuePerUnit == "0.0000000000" {
-					//b, _ := json.Marshal(productItem)
-					//fmt.Printf("%s\n", b)
-				}
-				_, exists := u.computeInstancesPrices[newPriceItem.instanceType]
-				if !exists {
-					u.computeInstancesPrices[newPriceItem.instanceType] = make([]priceItem, 0, 0)
-				}
-				u.computeInstancesPrices[newPriceItem.instanceType] = append(u.computeInstancesPrices[newPriceItem.instanceType], newPriceItem)
-			}
-		}
-	}
-
-	if err = productsPager.Err(); err != nil {
-		fmt.Printf("failed to describe products, %v", err)
-	}
-
-	fmt.Printf("found product prices: %v\n", len(u.computeInstancesPrices))
-}
-
-func (u *uuNodesPlugin) getInstanceEntries() (map[string]*InstanceEntry, error) {
+func (u *plugin) getInstanceEntries() (map[string]*models.InstanceEntry, error) {
 	// creates the in-cluster config
 	config, err := rest.InClusterConfig()
 	if err != nil {
@@ -460,7 +242,7 @@ func (u *uuNodesPlugin) getInstanceEntries() (map[string]*InstanceEntry, error) 
 		return nil, err
 	}
 
-	var instanceEntries = map[string]*InstanceEntry{}
+	var instanceEntries = map[string]*models.InstanceEntry{}
 
 	nodes, err := сoreV1Client.Nodes().List(metav1.ListOptions{})
 	if err != nil {
@@ -478,9 +260,9 @@ func (u *uuNodesPlugin) getInstanceEntries() (map[string]*InstanceEntry, error) 
 			return nil, err
 		}
 
-		var entry = &InstanceEntry{
-			AwsInstance: &AwsInstance{},
-			KubeWorker: &KubeWorker{
+		var entry = &models.InstanceEntry{
+			AwsInstance: &models.AwsInstance{},
+			KubeWorker: &models.KubeWorker{
 				Name: node.Name,
 			},
 		}
@@ -519,25 +301,9 @@ func (u *uuNodesPlugin) getInstanceEntries() (map[string]*InstanceEntry, error) 
 	return instanceEntries, nil
 }
 
-func (u *uuNodesPlugin) getEC2Reservations() ([]ec2.RunInstancesOutput, error) {
-	cfg, err := external.LoadDefaultAWSConfig()
-	if err != nil {
-		fmt.Printf("unable to load AWS SDK config,  %v", err)
-		return nil, errors.Wrap(err, "unable to load AWS SDK config")
-	}
+func (u *plugin) getEC2Reservations() ([]ec2.RunInstancesOutput, error) {
 
-	var awsConfig = u.config.GetAwsConfig()
-
-	cfg.Credentials = aws.NewStaticCredentialsProvider(
-		awsConfig.GetAccessKeyId(),
-		awsConfig.GetSecretAccessKey(),
-		"",
-	)
-	cfg.Region = awsConfig.GetRegion()
-
-	ec2Service := ec2.New(cfg)
-
-	instancesRequest := ec2Service.DescribeInstancesRequest(nil)
+	instancesRequest := u.ec2Service.DescribeInstancesRequest(nil)
 
 	describeInstancesResponse, err := instancesRequest.Send()
 	if err != nil {
