@@ -3,7 +3,7 @@ package underutilizednodes
 import (
 	"encoding/json"
 	"fmt"
-	"strings"
+	"github.com/supergiant/robot/builtin/plugins/underutilizednodes/kube"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/aws/external"
@@ -14,10 +14,6 @@ import (
 	"github.com/pkg/errors"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
-	corev1api "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/resource"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/fields"
 	corev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 	"k8s.io/client-go/rest"
 
@@ -28,8 +24,9 @@ import (
 )
 
 type plugin struct {
-	config     *proto.PluginConfig
-	ec2Service *ec2.EC2
+	config       *proto.PluginConfig
+	ec2Service   *ec2.EC2
+	сoreV1Client *corev1.CoreV1Client
 
 	computeInstancesPrices map[string][]models.PriceItem
 }
@@ -59,13 +56,13 @@ func NewPlugin() proto.PluginClient {
 }
 
 func (u *plugin) Check(ctx context.Context, in *proto.CheckRequest, opts ...grpc.CallOption) (*proto.CheckResponse, error) {
-	var instanceEntries, err = u.getInstanceEntries()
+	var instanceEntries, err = kube.GetInstanceEntries(u.сoreV1Client)
 	if err != nil {
 		fmt.Printf("unable to get instanceEntries, %v", err)
 		return nil, errors.Wrap(err, "unable to get instanceEntries")
 	}
 
-	ec2Reservations, err := u.getEC2Reservations()
+	ec2Reservations, err := getEC2Reservations(u.ec2Service)
 	if err != nil {
 		fmt.Printf("failed to describe ec2 instances, %v", err)
 		return nil, errors.Wrap(err, "failed to describe ec2 instances")
@@ -108,18 +105,6 @@ func (u *plugin) Check(ctx context.Context, in *proto.CheckRequest, opts ...grpc
 	return &proto.CheckResponse{Result: checkResult}, nil
 }
 
-// TODO: add checks and errors
-// for aws ProviderID has format - aws:///us-west-1b/i-0c912bfd4048b97e5
-func parseProviderID(providerID string) (string, string) {
-	var s = strings.TrimPrefix(providerID, "aws:///")
-	ss := strings.Split(s, "/")
-	return ss[0], ss[1]
-}
-
-func (u *plugin) Action(ctx context.Context, in *proto.ActionRequest, opts ...grpc.CallOption) (*proto.ActionResponse, error) {
-	panic("implement me")
-}
-
 func (u *plugin) Configure(ctx context.Context, in *proto.PluginConfig, opts ...grpc.CallOption) (*empty.Empty, error) {
 	u.config = in
 	//TODO: add here config validation in future
@@ -147,11 +132,18 @@ func (u *plugin) Configure(ctx context.Context, in *proto.PluginConfig, opts ...
 	cfg.Region = awsConfig.GetRegion()
 	u.ec2Service = ec2.New(cfg)
 
-	return nil, nil
-}
+	// creates the in-cluster config
+	config, err := rest.InClusterConfig()
+	if err != nil {
+		return nil, err
+	}
+	// creates the client
+	u.сoreV1Client, err = corev1.NewForConfig(config)
+	if err != nil {
+		return nil, err
+	}
 
-func (u *plugin) Stop(ctx context.Context, in *proto.Stop_Request, opts ...grpc.CallOption) (*proto.Stop_Response, error) {
-	panic("implement me")
+	return nil, nil
 }
 
 func (u *plugin) Info(ctx context.Context, in *empty.Empty, opts ...grpc.CallOption) (*proto.PluginInfo, error) {
@@ -163,147 +155,17 @@ func (u *plugin) Info(ctx context.Context, in *empty.Empty, opts ...grpc.CallOpt
 	}, nil
 }
 
-func getPodsTotalRequestsAndLimits(podList *corev1api.PodList) (reqs map[corev1api.ResourceName]resource.Quantity, limits map[corev1api.ResourceName]resource.Quantity) {
-	reqs, limits = map[corev1api.ResourceName]resource.Quantity{}, map[corev1api.ResourceName]resource.Quantity{}
-	for _, pod := range podList.Items {
-		podReqs, podLimits := PodRequestsAndLimits(&pod)
-		for podReqName, podReqValue := range podReqs {
-			if value, ok := reqs[podReqName]; !ok {
-				reqs[podReqName] = *podReqValue.Copy()
-			} else {
-				value.Add(podReqValue)
-				reqs[podReqName] = value
-			}
-		}
-		for podLimitName, podLimitValue := range podLimits {
-			if value, ok := limits[podLimitName]; !ok {
-				limits[podLimitName] = *podLimitValue.Copy()
-			} else {
-				value.Add(podLimitValue)
-				limits[podLimitName] = value
-			}
-		}
-	}
-	return
+func (u *plugin) Stop(ctx context.Context, in *proto.Stop_Request, opts ...grpc.CallOption) (*proto.Stop_Response, error) {
+	panic("implement me")
 }
 
-// PodRequestsAndLimits returns a dictionary of all defined resources summed up for all
-// containers of the pod.
-func PodRequestsAndLimits(pod *corev1api.Pod) (reqs corev1api.ResourceList, limits corev1api.ResourceList) {
-	reqs, limits = corev1api.ResourceList{}, corev1api.ResourceList{}
-	for _, container := range pod.Spec.Containers {
-		addResourceList(reqs, container.Resources.Requests)
-		addResourceList(limits, container.Resources.Limits)
-	}
-	// init containers define the minimum of any resource
-	for _, container := range pod.Spec.InitContainers {
-		maxResourceList(reqs, container.Resources.Requests)
-		maxResourceList(limits, container.Resources.Limits)
-	}
-	return
+func (u *plugin) Action(ctx context.Context, in *proto.ActionRequest, opts ...grpc.CallOption) (*proto.ActionResponse, error) {
+	panic("implement me")
 }
 
-// addResourceList adds the resources in newList to list
-func addResourceList(list, new corev1api.ResourceList) {
-	for name, quantity := range new {
-		if value, ok := list[name]; !ok {
-			list[name] = *quantity.Copy()
-		} else {
-			value.Add(quantity)
-			list[name] = value
-		}
-	}
-}
+func getEC2Reservations(ec2Service *ec2.EC2) ([]ec2.RunInstancesOutput, error) {
 
-// maxResourceList sets list to the greater of list/newList for every resource
-// either list
-func maxResourceList(list, new corev1api.ResourceList) {
-	for name, quantity := range new {
-		if value, ok := list[name]; !ok {
-			list[name] = *quantity.Copy()
-			continue
-		} else {
-			if quantity.Cmp(value) > 0 {
-				list[name] = *quantity.Copy()
-			}
-		}
-	}
-}
-
-func (u *plugin) getInstanceEntries() (map[string]*models.InstanceEntry, error) {
-	// creates the in-cluster config
-	config, err := rest.InClusterConfig()
-	if err != nil {
-		return nil, err
-	}
-	// creates the client
-	сoreV1Client, err := corev1.NewForConfig(config)
-	if err != nil {
-		return nil, err
-	}
-
-	var instanceEntries = map[string]*models.InstanceEntry{}
-
-	nodes, err := сoreV1Client.Nodes().List(metav1.ListOptions{})
-	if err != nil {
-		return nil, err
-	}
-
-	for _, node := range nodes.Items {
-		fieldSelector, err := fields.ParseSelector("spec.nodeName=" + node.Name + ",status.phase!=" + string(corev1api.PodSucceeded) + ",status.phase!=" + string(corev1api.PodFailed))
-		if err != nil {
-			return nil, err
-		}
-
-		nonTerminatedPodsList, err := сoreV1Client.Pods("").List(metav1.ListOptions{FieldSelector: fieldSelector.String()})
-		if err != nil {
-			return nil, err
-		}
-
-		var entry = &models.InstanceEntry{
-			AwsInstance: &models.AwsInstance{},
-			KubeWorker: &models.KubeWorker{
-				Name: node.Name,
-			},
-		}
-
-		entry.Region, entry.InstanceID = parseProviderID(node.Spec.ProviderID)
-
-		// calculate minions requests/limits
-		reqs, limits := getPodsTotalRequestsAndLimits(nonTerminatedPodsList)
-		cpuReqs, cpuLimits := reqs[corev1api.ResourceCPU], limits[corev1api.ResourceCPU]
-		memoryReqs, memoryLimits := reqs[corev1api.ResourceMemory], limits[corev1api.ResourceMemory]
-
-		entry.CpuReqs, entry.CpuLimits = cpuReqs.MilliValue(), cpuLimits.MilliValue()
-		entry.MemoryReqs, entry.MemoryLimits = memoryReqs.Value(), memoryLimits.Value()
-
-		var allocatable = node.Status.Capacity
-		if len(node.Status.Allocatable) > 0 {
-			allocatable = node.Status.Allocatable
-		}
-
-		entry.AllocatableCpu = allocatable.Cpu().MilliValue()
-		entry.AllocatableMemory = allocatable.Memory().Value()
-
-		if entry.AllocatableCpu != 0 {
-			entry.FractionCpuReqs = float64(entry.CpuReqs) / float64(entry.AllocatableCpu) * 100
-			entry.FractionCpuLimits = float64(entry.CpuLimits) / float64(entry.AllocatableCpu) * 100
-		}
-
-		if entry.AllocatableMemory != 0 {
-			entry.FractionMemoryReqs = float64(entry.MemoryReqs) / float64(entry.AllocatableMemory) * 100
-			entry.FractionMemoryLimits = float64(entry.MemoryLimits) / float64(entry.AllocatableMemory) * 100
-		}
-
-		instanceEntries[entry.InstanceID] = entry
-	}
-
-	return instanceEntries, nil
-}
-
-func (u *plugin) getEC2Reservations() ([]ec2.RunInstancesOutput, error) {
-
-	instancesRequest := u.ec2Service.DescribeInstancesRequest(nil)
+	instancesRequest := ec2Service.DescribeInstancesRequest(nil)
 
 	describeInstancesResponse, err := instancesRequest.Send()
 	if err != nil {
