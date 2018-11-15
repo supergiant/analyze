@@ -38,20 +38,14 @@ func GetNodeResourceRequirements(сoreV1Client *corev1.CoreV1Client) (map[string
 
 func getNodeResourceRequirements(node corev1api.Node, pods []corev1api.Pod) *NodeResourceRequirements {
 	var nodeResourceRequirements = &NodeResourceRequirements{
-		Name: node.Name,
-		Pods: []PodResourceRequirements{},
+		Name:                     node.Name,
+		PodsResourceRequirements: []*PodResourceRequirements{},
 	}
 
 	nodeResourceRequirements.Region, nodeResourceRequirements.InstanceID = parseProviderID(node.Spec.ProviderID)
 
 	// calculate worker node requests/limits
-	nodeResourceRequirements.Pods = getPodsRequestsAndLimits(pods)
-	for _, podRR := range nodeResourceRequirements.Pods {
-		nodeResourceRequirements.CpuReqs += podRR.CpuReqs
-		nodeResourceRequirements.CpuLimits += podRR.CpuLimits
-		nodeResourceRequirements.MemoryReqs += podRR.MemoryReqs
-		nodeResourceRequirements.MemoryLimits += podRR.MemoryLimits
-	}
+	nodeResourceRequirements.PodsResourceRequirements = getPodsRequestsAndLimits(pods)
 
 	var allocatable = node.Status.Capacity
 	if len(node.Status.Allocatable) > 0 {
@@ -61,15 +55,7 @@ func getNodeResourceRequirements(node corev1api.Node, pods []corev1api.Pod) *Nod
 	nodeResourceRequirements.AllocatableCpu = allocatable.Cpu().MilliValue()
 	nodeResourceRequirements.AllocatableMemory = allocatable.Memory().Value()
 
-	if nodeResourceRequirements.AllocatableCpu != 0 {
-		nodeResourceRequirements.FractionCpuReqs = float64(nodeResourceRequirements.CpuReqs) / float64(nodeResourceRequirements.AllocatableCpu) * 100
-		nodeResourceRequirements.FractionCpuLimits = float64(nodeResourceRequirements.CpuLimits) / float64(nodeResourceRequirements.AllocatableCpu) * 100
-	}
-
-	if nodeResourceRequirements.AllocatableMemory != 0 {
-		nodeResourceRequirements.FractionMemoryReqs = float64(nodeResourceRequirements.MemoryReqs) / float64(nodeResourceRequirements.AllocatableMemory) * 100
-		nodeResourceRequirements.FractionMemoryLimits = float64(nodeResourceRequirements.MemoryLimits) / float64(nodeResourceRequirements.AllocatableMemory) * 100
-	}
+	nodeResourceRequirements.RefreshTotals()
 
 	return nodeResourceRequirements
 }
@@ -82,10 +68,10 @@ func parseProviderID(providerID string) (string, string) {
 	return ss[0], ss[1]
 }
 
-func getPodsRequestsAndLimits(podList []corev1api.Pod) []PodResourceRequirements {
-	var result = []PodResourceRequirements{}
+func getPodsRequestsAndLimits(podList []corev1api.Pod) []*PodResourceRequirements {
+	var result = []*PodResourceRequirements{}
 	for _, pod := range podList {
-		var podRR = PodResourceRequirements{
+		var podRR = &PodResourceRequirements{
 			PodName: pod.Name,
 		}
 

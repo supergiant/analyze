@@ -13,16 +13,16 @@ import (
 type InstanceEntry struct {
 	//AWS instance Type
 	InstanceType string
-	Price        prices.Item
+	Price        *prices.Item
 	*kube.NodeResourceRequirements
 }
 
 func (m *InstanceEntry) RAMWasted() int64 {
-	return m.AllocatableMemory - m.MemoryReqs
+	return m.AllocatableMemory - m.MemoryReqs()
 }
 
 func (m *InstanceEntry) RAMRequested() int64 {
-	return m.MemoryReqs
+	return m.MemoryReqs()
 }
 
 func (m *InstanceEntry) CPURequested() float64 {

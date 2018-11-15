@@ -3,9 +3,9 @@ package sunsetting
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/aws/aws-sdk-go-v2/aws"
 	"strings"
 
-	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/aws/external"
 	"github.com/aws/aws-sdk-go-v2/service/ec2"
 	"github.com/aws/aws-sdk-go-v2/service/pricing"
@@ -82,7 +82,8 @@ func (u *plugin) Check(ctx context.Context, in *proto.CheckRequest, opts ...grpc
 
 			var instanceType, _ = i.InstanceType.MarshalValue()
 
-			// TODO: fix me when prices info will be clear and match it with instance tenancy?
+			// TODO: fix me when prices collecting will be clear
+			// TODO: We need to match it with instance tenancy?
 			var instanceTypePrice prices.Item
 			var instanceTypePrices, exist = u.computeInstancesPrices[instanceType]
 			if exist {
@@ -91,11 +92,14 @@ func (u *plugin) Check(ctx context.Context, in *proto.CheckRequest, opts ...grpc
 						instanceTypePrice = priceItem
 					}
 				}
+				if instanceTypePrice.InstanceType == "" && len(instanceTypePrices) > 0 {
+					instanceTypePrice = instanceTypePrices[0]
+				}
 			}
 
 			unsortedEntries = append(unsortedEntries, &InstanceEntry{
 				InstanceType:             instanceType,
-				Price:                    instanceTypePrice,
+				Price:                    &instanceTypePrice,
 				NodeResourceRequirements: kubeNode,
 			})
 		}
@@ -106,10 +110,10 @@ func (u *plugin) Check(ctx context.Context, in *proto.CheckRequest, opts ...grpc
 
 	var instancesToSunset = CheckAllPodsAtATime(sortedByWastedRam)
 
-	var instancesToSunset2 = CheckEachPodOneByOne(sortedByWastedRam, sortedByRequestedRam)
+	var instancesToSunsetOptionTwo = CheckEachPodOneByOne(sortedByWastedRam, sortedByRequestedRam)
 
 	b, _ := json.Marshal(instancesToSunset)
-	bb, _ := json.Marshal(instancesToSunset2)
+	bb, _ := json.Marshal(instancesToSunsetOptionTwo)
 
 	checkResult.Description = &any.Any{
 		TypeUrl: "test",
@@ -130,19 +134,22 @@ func (u *plugin) Configure(ctx context.Context, in *proto.PluginConfig, opts ...
 	}
 
 	var awsConfig = u.config.GetAwsConfig()
-	cfg.Region = awsConfig.GetRegion()
-	// TODO bug in sdk?
-	cfg.Region = "us-east-1"
-	var pricingService = pricing.New(cfg)
-
-	//TODO may be add some init method to plugin?
-	u.computeInstancesPrices = prices.Get(pricingService, cfg.Region)
-
 	cfg.Credentials = aws.NewStaticCredentialsProvider(
 		awsConfig.GetAccessKeyId(),
 		awsConfig.GetSecretAccessKey(),
 		"",
 	)
+	// TODO bug in sdk?
+	cfg.Region = "us-east-1"
+	var pricingService = pricing.New(cfg)
+
+	//TODO may be add some init method to plugin?
+	u.computeInstancesPrices, err = prices.Get(pricingService, cfg.Region)
+	if err != nil {
+		return nil, err
+	}
+
+	// set correct region for ec2 service
 	cfg.Region = awsConfig.GetRegion()
 	u.ec2Service = ec2.New(cfg)
 

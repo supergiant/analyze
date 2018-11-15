@@ -25,7 +25,7 @@ var awsPartitions = map[string]string{
 	"us-west-2":      "US West (Oregon)",
 }
 
-func Get(pricingService *pricing.Pricing, region string) map[string][]Item {
+func Get(pricingService *pricing.Pricing, region string) (map[string][]Item, error ){
 	var computeInstancesPrices = make(map[string][]Item, 0)
 
 	productsInput := &pricing.GetProductsInput{
@@ -64,7 +64,7 @@ func Get(pricingService *pricing.Pricing, region string) map[string][]Item {
 			},
 		},
 		FormatVersion: aws.String("aws_v1"),
-		MaxResults:    aws.Int64(100), //TODO: add pagination
+		MaxResults:    aws.Int64(100),
 		ServiceCode:   aws.String("AmazonEC2"),
 	}
 
@@ -94,10 +94,11 @@ func Get(pricingService *pricing.Pricing, region string) map[string][]Item {
 
 	if err := productsPager.Err(); err != nil {
 		fmt.Printf("failed to describe products, %v", err)
+		return nil, err
 	}
 
 	fmt.Printf("found product prices: %v\n", len(computeInstancesPrices))
-	return computeInstancesPrices
+	return computeInstancesPrices, nil
 }
 
 // TODO add checks and return error
