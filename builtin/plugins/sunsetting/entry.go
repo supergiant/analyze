@@ -39,7 +39,19 @@ type EntriesByWastedRAM []*InstanceEntry
 func NewSortedEntriesByWastedRAM(in []*InstanceEntry) EntriesByWastedRAM {
 	var res = make([]*InstanceEntry, len(in))
 	for i, e := range in {
-		res[i] = e
+		var item = &InstanceEntry{
+			InstanceType:             e.InstanceType,
+			Price:                    &prices.Item{},
+			NodeResourceRequirements: &kube.NodeResourceRequirements{},
+		}
+		*item.Price = *e.Price
+		*item.NodeResourceRequirements = *e.NodeResourceRequirements
+		for _, p := range e.NodeResourceRequirements.PodsResourceRequirements {
+			var newP = *p
+			item.NodeResourceRequirements.PodsResourceRequirements = append(item.NodeResourceRequirements.PodsResourceRequirements, &newP)
+		}
+
+		res[i] = item
 	}
 	var entries = EntriesByWastedRAM(res)
 	sort.Sort(sort.Reverse(entries))
@@ -54,10 +66,23 @@ func (e EntriesByWastedRAM) Swap(i, j int)      { e[i], e[j] = e[j], e[i] }
 // EntriesByRequestedRAM implements sort.Interface based on the value returned by NodeResourceRequirements.RAMRequested().
 type EntriesByRequestedRAM []*InstanceEntry
 
+
 func NewSortedEntriesByRequestedRAM(in []*InstanceEntry) EntriesByRequestedRAM {
 	var res = make([]*InstanceEntry, len(in))
 	for i, e := range in {
-		res[i] = e
+		var item = &InstanceEntry{
+			InstanceType:             e.InstanceType,
+			Price:                    &prices.Item{},
+			NodeResourceRequirements: &kube.NodeResourceRequirements{},
+		}
+		*item.Price = *e.Price
+		*item.NodeResourceRequirements = *e.NodeResourceRequirements
+		for _, p := range e.NodeResourceRequirements.PodsResourceRequirements {
+			var newP = *p
+			item.NodeResourceRequirements.PodsResourceRequirements = append(item.NodeResourceRequirements.PodsResourceRequirements, &newP)
+		}
+
+		res[i] = item
 	}
 	var entries = EntriesByRequestedRAM(res)
 	sort.Sort(sort.Reverse(entries))

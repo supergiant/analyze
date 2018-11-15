@@ -16,6 +16,9 @@ func CheckAllPodsAtATime(entriesByWastedRam EntriesByWastedRAM) []*InstanceEntry
 				//change memory requests of node which receive all workload
 				entriesByWastedRam[i].PodsResourceRequirements = append(entriesByWastedRam[i].PodsResourceRequirements, maxWastedRamEntry.PodsResourceRequirements...)
 				entriesByWastedRam[i].RefreshTotals()
+
+				maxWastedRamEntry.PodsResourceRequirements = nil
+				maxWastedRamEntry.RefreshTotals()
 				break
 			}
 		}
@@ -41,9 +44,17 @@ func CheckEachPodOneByOne(entriesByWastedRam EntriesByWastedRAM, entriesByReques
 			var podRR = maxWastedRamEntry.PodsResourceRequirements[i]
 			for _, maxRequestedRamEntry := range entriesByRequestedRAM {
 				if maxRequestedRamEntry.RAMWasted() >= podRR.MemoryReqs {
-
+					// we can move the pod
+					// delete it from  maxWastedRamEntry
+					maxWastedRamEntry.PodsResourceRequirements = append(maxWastedRamEntry.PodsResourceRequirements[:i], maxWastedRamEntry.PodsResourceRequirements[i+1:]...)
+					maxWastedRamEntry.RefreshTotals()
+					maxRequestedRamEntry.PodsResourceRequirements = append(maxRequestedRamEntry.PodsResourceRequirements, podRR)
+					maxRequestedRamEntry.RefreshTotals()
 				}
 			}
+		}
+		if len(maxWastedRamEntry.PodsResourceRequirements) == 0 {
+			res = append(res, maxWastedRamEntry)
 		}
 	}
 

@@ -114,10 +114,11 @@ func (u *plugin) Check(ctx context.Context, in *proto.CheckRequest, opts ...grpc
 
 	b, _ := json.Marshal(instancesToSunset)
 	bb, _ := json.Marshal(instancesToSunsetOptionTwo)
+	bbb, _ := json.Marshal(unsortedEntries)
 
 	checkResult.Description = &any.Any{
 		TypeUrl: "test",
-		Value:   append(b, bb...),
+		Value:   append(b, append(bb, bbb...)...),
 	}
 	checkResult.Status = proto.CheckStatus_GREEN
 	return &proto.CheckResponse{Result: checkResult}, nil

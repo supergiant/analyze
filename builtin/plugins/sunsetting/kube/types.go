@@ -1,5 +1,7 @@
 package kube
 
+import "encoding/json"
+
 type NodeResourceRequirements struct {
 	Name string
 	// extracted from ProviderID
@@ -80,4 +82,23 @@ func (n *NodeResourceRequirements) FractionMemoryReqs() float64 {
 
 func (n *NodeResourceRequirements) FractionMemoryLimits() float64 {
 	return n.fractionMemoryLimits
+}
+
+func (n *NodeResourceRequirements) MarshalJSON() ([]byte, error) {
+	return json.Marshal(map[string]interface{}{
+		"name": n.Name,
+		"region": n.Region,
+		"instanceId": n.InstanceID,
+		"podsResourceRequirements": n.PodsResourceRequirements,
+		"allocatableCpu": n.AllocatableCpu,
+		"allocatableMemory": n.AllocatableMemory,
+		"cpuRequests": n.cpuReqs,
+		"cpuLimits": n.cpuLimits,
+		"memoryRequests": n.memoryReqs,
+		"memoryLimits": n.memoryLimits,
+		"fractionCpuRequests": n.fractionCpuReqs,
+		"fractionCpuLimits": n.fractionCpuLimits,
+		"fractionMemoryRequests": n.fractionMemoryReqs,
+		"fractionMemoryLimits": n.fractionMemoryLimits,
+	})
 }
