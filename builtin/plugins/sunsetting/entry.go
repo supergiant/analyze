@@ -3,6 +3,8 @@ package sunsetting
 import (
 	"sort"
 
+	"github.com/supergiant/robot/builtin/plugins/sunsetting/prices"
+
 	"github.com/supergiant/robot/builtin/plugins/sunsetting/kube"
 )
 
@@ -11,6 +13,7 @@ import (
 type InstanceEntry struct {
 	//AWS instance Type
 	InstanceType string
+	Price        prices.Item
 	*kube.NodeResourceRequirements
 }
 

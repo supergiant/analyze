@@ -3,6 +3,7 @@ package sunsetting
 import (
 	"encoding/json"
 	"fmt"
+	"strings"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/aws/external"
@@ -68,7 +69,7 @@ func (u *plugin) Check(ctx context.Context, in *proto.CheckRequest, opts ...grpc
 
 	var unsortedEntries = []*InstanceEntry{}
 
-	// create InstanceEntries by combining nodeResourceRequirements with ec2 instance type
+	// create InstanceEntries by combining nodeResourceRequirements with ec2 instance type and price
 	for _, instancesReservation := range ec2Reservations {
 		for _, i := range instancesReservation.Instances {
 			if i.InstanceId == nil {
@@ -81,23 +82,38 @@ func (u *plugin) Check(ctx context.Context, in *proto.CheckRequest, opts ...grpc
 
 			var instanceType, _ = i.InstanceType.MarshalValue()
 
+			// TODO: fix me when prices info will be clear and match it with instance tenancy?
+			var instanceTypePrice prices.Item
+			var instanceTypePrices, exist = u.computeInstancesPrices[instanceType]
+			if exist {
+				for _, priceItem := range instanceTypePrices {
+					if strings.Contains(priceItem.UsageType, "BoxUsage") {
+						instanceTypePrice = priceItem
+					}
+				}
+			}
+
 			unsortedEntries = append(unsortedEntries, &InstanceEntry{
 				InstanceType:             instanceType,
+				Price:                    instanceTypePrice,
 				NodeResourceRequirements: kubeNode,
 			})
 		}
 	}
 
 	var sortedByWastedRam = NewSortedEntriesByWastedRAM(unsortedEntries)
-	//var sortedByRequestedRam = models.NewSortedEntriesByRequestedRAM(unsortedEntries)
+	var sortedByRequestedRam = NewSortedEntriesByRequestedRAM(unsortedEntries)
 
 	var instancesToSunset = CheckAllPodsAtATime(sortedByWastedRam)
 
+	var instancesToSunset2 = CheckEachPodOneByOne(sortedByWastedRam, sortedByRequestedRam)
+
 	b, _ := json.Marshal(instancesToSunset)
+	bb, _ := json.Marshal(instancesToSunset2)
 
 	checkResult.Description = &any.Any{
 		TypeUrl: "test",
-		Value:   b,
+		Value:   append(b, bb...),
 	}
 	checkResult.Status = proto.CheckStatus_GREEN
 	return &proto.CheckResponse{Result: checkResult}, nil

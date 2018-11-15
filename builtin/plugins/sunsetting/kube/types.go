@@ -6,7 +6,7 @@ type NodeResourceRequirements struct {
 	Region     string
 	InstanceID string
 
-	Pods              []*PodResourceRequirements
+	Pods              []PodResourceRequirements
 	AllocatableCpu    int64
 	AllocatableMemory int64
 
@@ -22,6 +22,7 @@ type NodeResourceRequirements struct {
 }
 
 type PodResourceRequirements struct {
+	PodName      string
 	CpuReqs      int64
 	CpuLimits    int64
 	MemoryReqs   int64

@@ -4,7 +4,6 @@ import (
 	"strings"
 
 	corev1api "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
 	corev1 "k8s.io/client-go/kubernetes/typed/core/v1"
@@ -29,42 +28,50 @@ func GetNodeResourceRequirements(сoreV1Client *corev1.CoreV1Client) (map[string
 			return nil, err
 		}
 
-		var nodeResourceRequirements = &NodeResourceRequirements{
-			Name: node.Name,
-		}
-
-		nodeResourceRequirements.Region, nodeResourceRequirements.InstanceID = parseProviderID(node.Spec.ProviderID)
-
-		// calculate minions requests/limits
-		reqs, limits := getPodsTotalRequestsAndLimits(nonTerminatedPodsList)
-		cpuReqs, cpuLimits := reqs[corev1api.ResourceCPU], limits[corev1api.ResourceCPU]
-		memoryReqs, memoryLimits := reqs[corev1api.ResourceMemory], limits[corev1api.ResourceMemory]
-
-		nodeResourceRequirements.CpuReqs, nodeResourceRequirements.CpuLimits = cpuReqs.MilliValue(), cpuLimits.MilliValue()
-		nodeResourceRequirements.MemoryReqs, nodeResourceRequirements.MemoryLimits = memoryReqs.Value(), memoryLimits.Value()
-
-		var allocatable = node.Status.Capacity
-		if len(node.Status.Allocatable) > 0 {
-			allocatable = node.Status.Allocatable
-		}
-
-		nodeResourceRequirements.AllocatableCpu = allocatable.Cpu().MilliValue()
-		nodeResourceRequirements.AllocatableMemory = allocatable.Memory().Value()
-
-		if nodeResourceRequirements.AllocatableCpu != 0 {
-			nodeResourceRequirements.FractionCpuReqs = float64(nodeResourceRequirements.CpuReqs) / float64(nodeResourceRequirements.AllocatableCpu) * 100
-			nodeResourceRequirements.FractionCpuLimits = float64(nodeResourceRequirements.CpuLimits) / float64(nodeResourceRequirements.AllocatableCpu) * 100
-		}
-
-		if nodeResourceRequirements.AllocatableMemory != 0 {
-			nodeResourceRequirements.FractionMemoryReqs = float64(nodeResourceRequirements.MemoryReqs) / float64(nodeResourceRequirements.AllocatableMemory) * 100
-			nodeResourceRequirements.FractionMemoryLimits = float64(nodeResourceRequirements.MemoryLimits) / float64(nodeResourceRequirements.AllocatableMemory) * 100
-		}
+		var nodeResourceRequirements = getNodeResourceRequirements(node, nonTerminatedPodsList.Items)
 
 		instanceEntries[nodeResourceRequirements.InstanceID] = nodeResourceRequirements
 	}
 
 	return instanceEntries, nil
+}
+
+func getNodeResourceRequirements(node corev1api.Node, pods []corev1api.Pod) *NodeResourceRequirements {
+	var nodeResourceRequirements = &NodeResourceRequirements{
+		Name: node.Name,
+		Pods: []PodResourceRequirements{},
+	}
+
+	nodeResourceRequirements.Region, nodeResourceRequirements.InstanceID = parseProviderID(node.Spec.ProviderID)
+
+	// calculate worker node requests/limits
+	nodeResourceRequirements.Pods = getPodsRequestsAndLimits(pods)
+	for _, podRR := range nodeResourceRequirements.Pods {
+		nodeResourceRequirements.CpuReqs += podRR.CpuReqs
+		nodeResourceRequirements.CpuLimits += podRR.CpuLimits
+		nodeResourceRequirements.MemoryReqs += podRR.MemoryReqs
+		nodeResourceRequirements.MemoryLimits += podRR.MemoryLimits
+	}
+
+	var allocatable = node.Status.Capacity
+	if len(node.Status.Allocatable) > 0 {
+		allocatable = node.Status.Allocatable
+	}
+
+	nodeResourceRequirements.AllocatableCpu = allocatable.Cpu().MilliValue()
+	nodeResourceRequirements.AllocatableMemory = allocatable.Memory().Value()
+
+	if nodeResourceRequirements.AllocatableCpu != 0 {
+		nodeResourceRequirements.FractionCpuReqs = float64(nodeResourceRequirements.CpuReqs) / float64(nodeResourceRequirements.AllocatableCpu) * 100
+		nodeResourceRequirements.FractionCpuLimits = float64(nodeResourceRequirements.CpuLimits) / float64(nodeResourceRequirements.AllocatableCpu) * 100
+	}
+
+	if nodeResourceRequirements.AllocatableMemory != 0 {
+		nodeResourceRequirements.FractionMemoryReqs = float64(nodeResourceRequirements.MemoryReqs) / float64(nodeResourceRequirements.AllocatableMemory) * 100
+		nodeResourceRequirements.FractionMemoryLimits = float64(nodeResourceRequirements.MemoryLimits) / float64(nodeResourceRequirements.AllocatableMemory) * 100
+	}
+
+	return nodeResourceRequirements
 }
 
 // TODO: add checks and errors
@@ -75,28 +82,23 @@ func parseProviderID(providerID string) (string, string) {
 	return ss[0], ss[1]
 }
 
-func getPodsTotalRequestsAndLimits(podList *corev1api.PodList) (reqs map[corev1api.ResourceName]resource.Quantity, limits map[corev1api.ResourceName]resource.Quantity) {
-	reqs, limits = map[corev1api.ResourceName]resource.Quantity{}, map[corev1api.ResourceName]resource.Quantity{}
-	for _, pod := range podList.Items {
+func getPodsRequestsAndLimits(podList []corev1api.Pod) []PodResourceRequirements {
+	var result = []PodResourceRequirements{}
+	for _, pod := range podList {
+		var podRR = PodResourceRequirements{
+			PodName: pod.Name,
+		}
+
 		podReqs, podLimits := PodRequestsAndLimits(&pod)
-		for podReqName, podReqValue := range podReqs {
-			if value, ok := reqs[podReqName]; !ok {
-				reqs[podReqName] = *podReqValue.Copy()
-			} else {
-				value.Add(podReqValue)
-				reqs[podReqName] = value
-			}
-		}
-		for podLimitName, podLimitValue := range podLimits {
-			if value, ok := limits[podLimitName]; !ok {
-				limits[podLimitName] = *podLimitValue.Copy()
-			} else {
-				value.Add(podLimitValue)
-				limits[podLimitName] = value
-			}
-		}
+		cpuReqs, cpuLimits := podReqs[corev1api.ResourceCPU], podLimits[corev1api.ResourceCPU]
+		memoryReqs, memoryLimits := podReqs[corev1api.ResourceMemory], podLimits[corev1api.ResourceMemory]
+		podRR.CpuReqs, podRR.CpuLimits = cpuReqs.MilliValue(), cpuLimits.MilliValue()
+		podRR.MemoryReqs, podRR.MemoryLimits = memoryReqs.Value(), memoryLimits.Value()
+
+		result = append(result, podRR)
 	}
-	return
+
+	return result
 }
 
 // PodRequestsAndLimits returns a dictionary of all defined resources summed up for all
