@@ -1,9 +1,7 @@
-package checks
+package sunsetting
 
-import "github.com/supergiant/robot/builtin/plugins/underutilizednodes/models"
-
-func AllPodsAtATime(entriesByWastedRam models.EntriesByWastedRAM) []*models.InstanceEntry {
-	var res = make([]*models.InstanceEntry, 0)
+func CheckAllPodsAtATime(entriesByWastedRam EntriesByWastedRAM) []*InstanceEntry {
+	var res = make([]*InstanceEntry, 0)
 
 	for _, maxWatedRamEntry := range entriesByWastedRam {
 		for i := len(entriesByWastedRam) - 1; i > 0; i-- {

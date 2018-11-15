@@ -8,12 +8,10 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
 	corev1 "k8s.io/client-go/kubernetes/typed/core/v1"
-
-	"github.com/supergiant/robot/builtin/plugins/underutilizednodes/models"
 )
 
-func GetInstanceEntries(сoreV1Client *corev1.CoreV1Client) (map[string]*models.InstanceEntry, error) {
-	var instanceEntries = map[string]*models.InstanceEntry{}
+func GetNodeResourceRequirements(сoreV1Client *corev1.CoreV1Client) (map[string]*NodeResourceRequirements, error) {
+	var instanceEntries = map[string]*NodeResourceRequirements{}
 
 	nodes, err := сoreV1Client.Nodes().List(metav1.ListOptions{})
 	if err != nil {
@@ -31,42 +29,39 @@ func GetInstanceEntries(сoreV1Client *corev1.CoreV1Client) (map[string]*models.
 			return nil, err
 		}
 
-		var entry = &models.InstanceEntry{
-			AwsInstance: &models.AwsInstance{},
-			KubeWorker: &models.KubeWorker{
-				Name: node.Name,
-			},
+		var nodeResourceRequirements = &NodeResourceRequirements{
+			Name: node.Name,
 		}
 
-		entry.Region, entry.InstanceID = parseProviderID(node.Spec.ProviderID)
+		nodeResourceRequirements.Region, nodeResourceRequirements.InstanceID = parseProviderID(node.Spec.ProviderID)
 
 		// calculate minions requests/limits
 		reqs, limits := getPodsTotalRequestsAndLimits(nonTerminatedPodsList)
 		cpuReqs, cpuLimits := reqs[corev1api.ResourceCPU], limits[corev1api.ResourceCPU]
 		memoryReqs, memoryLimits := reqs[corev1api.ResourceMemory], limits[corev1api.ResourceMemory]
 
-		entry.CpuReqs, entry.CpuLimits = cpuReqs.MilliValue(), cpuLimits.MilliValue()
-		entry.MemoryReqs, entry.MemoryLimits = memoryReqs.Value(), memoryLimits.Value()
+		nodeResourceRequirements.CpuReqs, nodeResourceRequirements.CpuLimits = cpuReqs.MilliValue(), cpuLimits.MilliValue()
+		nodeResourceRequirements.MemoryReqs, nodeResourceRequirements.MemoryLimits = memoryReqs.Value(), memoryLimits.Value()
 
 		var allocatable = node.Status.Capacity
 		if len(node.Status.Allocatable) > 0 {
 			allocatable = node.Status.Allocatable
 		}
 
-		entry.AllocatableCpu = allocatable.Cpu().MilliValue()
-		entry.AllocatableMemory = allocatable.Memory().Value()
+		nodeResourceRequirements.AllocatableCpu = allocatable.Cpu().MilliValue()
+		nodeResourceRequirements.AllocatableMemory = allocatable.Memory().Value()
 
-		if entry.AllocatableCpu != 0 {
-			entry.FractionCpuReqs = float64(entry.CpuReqs) / float64(entry.AllocatableCpu) * 100
-			entry.FractionCpuLimits = float64(entry.CpuLimits) / float64(entry.AllocatableCpu) * 100
+		if nodeResourceRequirements.AllocatableCpu != 0 {
+			nodeResourceRequirements.FractionCpuReqs = float64(nodeResourceRequirements.CpuReqs) / float64(nodeResourceRequirements.AllocatableCpu) * 100
+			nodeResourceRequirements.FractionCpuLimits = float64(nodeResourceRequirements.CpuLimits) / float64(nodeResourceRequirements.AllocatableCpu) * 100
 		}
 
-		if entry.AllocatableMemory != 0 {
-			entry.FractionMemoryReqs = float64(entry.MemoryReqs) / float64(entry.AllocatableMemory) * 100
-			entry.FractionMemoryLimits = float64(entry.MemoryLimits) / float64(entry.AllocatableMemory) * 100
+		if nodeResourceRequirements.AllocatableMemory != 0 {
+			nodeResourceRequirements.FractionMemoryReqs = float64(nodeResourceRequirements.MemoryReqs) / float64(nodeResourceRequirements.AllocatableMemory) * 100
+			nodeResourceRequirements.FractionMemoryLimits = float64(nodeResourceRequirements.MemoryLimits) / float64(nodeResourceRequirements.AllocatableMemory) * 100
 		}
 
-		instanceEntries[entry.InstanceID] = entry
+		instanceEntries[nodeResourceRequirements.InstanceID] = nodeResourceRequirements
 	}
 
 	return instanceEntries, nil

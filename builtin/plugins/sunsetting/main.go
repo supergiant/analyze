@@ -1,9 +1,8 @@
-package underutilizednodes
+package sunsetting
 
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/supergiant/robot/builtin/plugins/underutilizednodes/kube"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/aws/external"
@@ -17,9 +16,8 @@ import (
 	corev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 	"k8s.io/client-go/rest"
 
-	"github.com/supergiant/robot/builtin/plugins/underutilizednodes/checks"
-	"github.com/supergiant/robot/builtin/plugins/underutilizednodes/models"
-	"github.com/supergiant/robot/builtin/plugins/underutilizednodes/prices"
+	"github.com/supergiant/robot/builtin/plugins/sunsetting/kube"
+	"github.com/supergiant/robot/builtin/plugins/sunsetting/prices"
 	"github.com/supergiant/robot/pkg/plugin/proto"
 )
 
@@ -28,7 +26,7 @@ type plugin struct {
 	ec2Service   *ec2.EC2
 	сoreV1Client *corev1.CoreV1Client
 
-	computeInstancesPrices map[string][]models.PriceItem
+	computeInstancesPrices map[string][]prices.Item
 }
 
 var checkResult = &proto.CheckResult{
@@ -56,10 +54,10 @@ func NewPlugin() proto.PluginClient {
 }
 
 func (u *plugin) Check(ctx context.Context, in *proto.CheckRequest, opts ...grpc.CallOption) (*proto.CheckResponse, error) {
-	var instanceEntries, err = kube.GetInstanceEntries(u.сoreV1Client)
+	var nodeResourceRequirements, err = kube.GetNodeResourceRequirements(u.сoreV1Client)
 	if err != nil {
-		fmt.Printf("unable to get instanceEntries, %v", err)
-		return nil, errors.Wrap(err, "unable to get instanceEntries")
+		fmt.Printf("unable to get nodeResourceRequirements, %v", err)
+		return nil, errors.Wrap(err, "unable to get nodeResourceRequirements")
 	}
 
 	ec2Reservations, err := getEC2Reservations(u.ec2Service)
@@ -68,32 +66,32 @@ func (u *plugin) Check(ctx context.Context, in *proto.CheckRequest, opts ...grpc
 		return nil, errors.Wrap(err, "failed to describe ec2 instances")
 	}
 
-	// enrich instanceEntries with ec2 instance type info
+	var unsortedEntries = []*InstanceEntry{}
+
+	// create InstanceEntries by combining nodeResourceRequirements with ec2 instance type
 	for _, instancesReservation := range ec2Reservations {
 		for _, i := range instancesReservation.Instances {
 			if i.InstanceId == nil {
 				continue
 			}
-			var minion, exists = instanceEntries[*i.InstanceId]
+			var kubeNode, exists = nodeResourceRequirements[*i.InstanceId]
 			if !exists {
 				continue
 			}
 
 			var instanceType, _ = i.InstanceType.MarshalValue()
-			minion.InstanceType = instanceType
+
+			unsortedEntries = append(unsortedEntries, &InstanceEntry{
+				InstanceType:             instanceType,
+				NodeResourceRequirements: kubeNode,
+			})
 		}
 	}
 
-	var unsortedEntires []*models.InstanceEntry
+	var sortedByWastedRam = NewSortedEntriesByWastedRAM(unsortedEntries)
+	//var sortedByRequestedRam = models.NewSortedEntriesByRequestedRAM(unsortedEntries)
 
-	for _, entry := range instanceEntries {
-		unsortedEntires = append(unsortedEntires, entry)
-	}
-
-	var sortedByWastedRam = models.NewSortedEntriesByWastedRAM(unsortedEntires)
-	//var sortedByRequestedRam = models.NewSortedEntriesByRequestedRAM(unsortedEntires)
-
-	var instancesToSunset = checks.AllPodsAtATime(sortedByWastedRam)
+	var instancesToSunset = CheckAllPodsAtATime(sortedByWastedRam)
 
 	b, _ := json.Marshal(instancesToSunset)
 

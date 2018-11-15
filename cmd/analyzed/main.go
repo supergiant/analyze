@@ -15,7 +15,7 @@ import (
 
 	"github.com/supergiant/robot"
 	"github.com/supergiant/robot/builtin/plugins/requestslimitscheck"
-	"github.com/supergiant/robot/builtin/plugins/underutilizednodes"
+	"github.com/supergiant/robot/builtin/plugins/sunsetting"
 	"github.com/supergiant/robot/pkg/api"
 	"github.com/supergiant/robot/pkg/api/handlers"
 	"github.com/supergiant/robot/pkg/api/operations"
@@ -92,7 +92,7 @@ func runCommand(cmd *cobra.Command, _ []string) error {
 	defer etcdStorage.Close()
 
 	plugins := make(plugin.PluginsSet)
-	plugins.Load(underutilizednodes.NewPlugin(), cfg.Plugin.ToProtoConfig())
+	plugins.Load(sunsetting.NewPlugin(), cfg.Plugin.ToProtoConfig())
 	plugins.Load(requestslimitscheck.NewPlugin(), cfg.Plugin.ToProtoConfig())
 
 	//TODO: refactor and move this logic from to the plugin loading subsystem

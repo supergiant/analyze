@@ -5,8 +5,6 @@ import (
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/pricing"
-
-	"github.com/supergiant/robot/builtin/plugins/underutilizednodes/models"
 )
 
 var awsPartitions = map[string]string{
@@ -27,8 +25,8 @@ var awsPartitions = map[string]string{
 	"us-west-2":      "US West (Oregon)",
 }
 
-func Get(pricingService *pricing.Pricing, region string) map[string][]models.PriceItem {
-	var computeInstancesPrices = make(map[string][]models.PriceItem, 0)
+func Get(pricingService *pricing.Pricing, region string) map[string][]Item {
+	var computeInstancesPrices = make(map[string][]Item, 0)
 
 	productsInput := &pricing.GetProductsInput{
 		Filters: []pricing.Filter{
@@ -87,7 +85,7 @@ func Get(pricingService *pricing.Pricing, region string) map[string][]models.Pri
 				}
 				_, exists := computeInstancesPrices[newPriceItem.InstanceType]
 				if !exists {
-					computeInstancesPrices[newPriceItem.InstanceType] = make([]models.PriceItem, 0, 0)
+					computeInstancesPrices[newPriceItem.InstanceType] = make([]Item, 0, 0)
 				}
 				computeInstancesPrices[newPriceItem.InstanceType] = append(computeInstancesPrices[newPriceItem.InstanceType], newPriceItem)
 			}
@@ -103,8 +101,8 @@ func Get(pricingService *pricing.Pricing, region string) map[string][]models.Pri
 }
 
 // TODO add checks and return error
-func getProduct(productItem aws.JSONValue) models.PriceItem {
-	var pi = models.PriceItem{}
+func getProduct(productItem aws.JSONValue) Item {
+	var pi = Item{}
 	productInterface, exists := productItem["product"]
 	if !exists {
 		fmt.Printf("product elemnt doesn't exist")
