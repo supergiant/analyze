@@ -24,11 +24,11 @@ type NodeResourceRequirements struct {
 }
 
 type PodResourceRequirements struct {
-	PodName      string
-	CpuReqs      int64
-	CpuLimits    int64
-	MemoryReqs   int64
-	MemoryLimits int64
+	PodName      string `json:"podName"`
+	CpuReqs      int64  `json:"cpuRequests"`
+	CpuLimits    int64  `json:"cpuLimits"`
+	MemoryReqs   int64  `json:"memoryRequests"`
+	MemoryLimits int64  `json:"memoryLimits"`
 }
 
 // RefreshTotals recalculates total node requests and limits and their fractional representation
@@ -86,19 +86,19 @@ func (n *NodeResourceRequirements) FractionMemoryLimits() float64 {
 
 func (n *NodeResourceRequirements) MarshalJSON() ([]byte, error) {
 	return json.Marshal(map[string]interface{}{
-		"name": n.Name,
-		"region": n.Region,
-		"instanceId": n.InstanceID,
+		"name":                     n.Name,
+		"region":                   n.Region,
+		"instanceId":               n.InstanceID,
 		"podsResourceRequirements": n.PodsResourceRequirements,
-		"allocatableCpu": n.AllocatableCpu,
-		"allocatableMemory": n.AllocatableMemory,
-		"cpuRequests": n.cpuReqs,
-		"cpuLimits": n.cpuLimits,
-		"memoryRequests": n.memoryReqs,
-		"memoryLimits": n.memoryLimits,
-		"fractionCpuRequests": n.fractionCpuReqs,
-		"fractionCpuLimits": n.fractionCpuLimits,
-		"fractionMemoryRequests": n.fractionMemoryReqs,
-		"fractionMemoryLimits": n.fractionMemoryLimits,
+		"allocatableCpu":           n.AllocatableCpu,
+		"allocatableMemory":        n.AllocatableMemory,
+		"cpuRequests":              n.cpuReqs,
+		"cpuLimits":                n.cpuLimits,
+		"memoryRequests":           n.memoryReqs,
+		"memoryLimits":             n.memoryLimits,
+		"fractionCpuRequests":      n.fractionCpuReqs,
+		"fractionCpuLimits":        n.fractionCpuLimits,
+		"fractionMemoryRequests":   n.fractionMemoryReqs,
+		"fractionMemoryLimits":     n.fractionMemoryLimits,
 	})
 }

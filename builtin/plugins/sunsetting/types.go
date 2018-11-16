@@ -3,7 +3,7 @@ package sunsetting
 import (
 	"sort"
 
-	"github.com/supergiant/robot/builtin/plugins/sunsetting/prices"
+	"github.com/supergiant/robot/builtin/plugins/sunsetting/cloudprovider"
 
 	"github.com/supergiant/robot/builtin/plugins/sunsetting/kube"
 )
@@ -11,10 +11,9 @@ import (
 // InstanceEntry struct represents Kelly's "instances to sunset" table entry,
 // It consists of some k8s cluster worker node params ans some ec2 instance params
 type InstanceEntry struct {
-	//AWS instance Type
-	InstanceType string
-	Price        *prices.Item
-	*kube.NodeResourceRequirements
+	CloudProvider                 cloudprovider.ComputeInstance `json:"cloudProvider"`
+	Price                         cloudprovider.ProductPrice    `json:"price"`
+	kube.NodeResourceRequirements `json:"kube"`
 }
 
 func (m *InstanceEntry) RAMWasted() int64 {
@@ -25,12 +24,8 @@ func (m *InstanceEntry) RAMRequested() int64 {
 	return m.MemoryReqs()
 }
 
-func (m *InstanceEntry) CPURequested() float64 {
-	panic("implement me")
-}
-
-func (m *InstanceEntry) CPURequestedPercents() float64 {
-	panic("implement me")
+func (m *InstanceEntry) CPUWasted() int64 {
+	return m.AllocatableCpu - m.CpuReqs()
 }
 
 // EntriesByWastedRAM implements sort.Interface based on the value returned by NodeResourceRequirements.RAMWasted().
@@ -40,12 +35,10 @@ func NewSortedEntriesByWastedRAM(in []*InstanceEntry) EntriesByWastedRAM {
 	var res = make([]*InstanceEntry, len(in))
 	for i, e := range in {
 		var item = &InstanceEntry{
-			InstanceType:             e.InstanceType,
-			Price:                    &prices.Item{},
-			NodeResourceRequirements: &kube.NodeResourceRequirements{},
+			CloudProvider:            e.CloudProvider,
+			Price:                    e.Price,
+			NodeResourceRequirements: e.NodeResourceRequirements,
 		}
-		*item.Price = *e.Price
-		*item.NodeResourceRequirements = *e.NodeResourceRequirements
 		for _, p := range e.NodeResourceRequirements.PodsResourceRequirements {
 			var newP = *p
 			item.NodeResourceRequirements.PodsResourceRequirements = append(item.NodeResourceRequirements.PodsResourceRequirements, &newP)
@@ -66,17 +59,14 @@ func (e EntriesByWastedRAM) Swap(i, j int)      { e[i], e[j] = e[j], e[i] }
 // EntriesByRequestedRAM implements sort.Interface based on the value returned by NodeResourceRequirements.RAMRequested().
 type EntriesByRequestedRAM []*InstanceEntry
 
-
 func NewSortedEntriesByRequestedRAM(in []*InstanceEntry) EntriesByRequestedRAM {
 	var res = make([]*InstanceEntry, len(in))
 	for i, e := range in {
 		var item = &InstanceEntry{
-			InstanceType:             e.InstanceType,
-			Price:                    &prices.Item{},
-			NodeResourceRequirements: &kube.NodeResourceRequirements{},
+			CloudProvider:            e.CloudProvider,
+			Price:                    e.Price,
+			NodeResourceRequirements: e.NodeResourceRequirements,
 		}
-		*item.Price = *e.Price
-		*item.NodeResourceRequirements = *e.NodeResourceRequirements
 		for _, p := range e.NodeResourceRequirements.PodsResourceRequirements {
 			var newP = *p
 			item.NodeResourceRequirements.PodsResourceRequirements = append(item.NodeResourceRequirements.PodsResourceRequirements, &newP)

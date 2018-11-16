@@ -1,10 +1,16 @@
-package prices
+package aws
 
 import (
 	"fmt"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/aws/external"
+	"github.com/aws/aws-sdk-go-v2/service/ec2"
 	"github.com/aws/aws-sdk-go-v2/service/pricing"
+	"github.com/pkg/errors"
+
+	"github.com/supergiant/robot/builtin/plugins/sunsetting/cloudprovider"
+	"github.com/supergiant/robot/pkg/plugin/proto"
 )
 
 var awsPartitions = map[string]string{
@@ -25,8 +31,42 @@ var awsPartitions = map[string]string{
 	"us-west-2":      "US West (Oregon)",
 }
 
-func Get(pricingService *pricing.Pricing, region string) (map[string][]Item, error ){
-	var computeInstancesPrices = make(map[string][]Item, 0)
+type Client struct {
+	regionDescription string
+	ec2Service        *ec2.EC2
+	pricingService    *pricing.Pricing
+}
+
+//NewClient creates aws client
+func NewClient(clientConfig *proto.AwsConfig) (*Client, error) {
+	var region = clientConfig.GetRegion()
+	var c = &Client{
+		regionDescription: awsPartitions[region],
+	}
+	cfg, err := external.LoadDefaultAWSConfig()
+	if err != nil {
+		return nil, errors.Wrap(err, "unable to load AWS SDK config")
+	}
+
+	cfg.Credentials = aws.NewStaticCredentialsProvider(
+		clientConfig.GetAccessKeyId(),
+		clientConfig.GetSecretAccessKey(),
+		"",
+	)
+
+	// TODO bug in sdk?
+	cfg.Region = "us-east-1"
+	c.pricingService = pricing.New(cfg)
+
+	// set correct region for ec2 service
+	cfg.Region = region
+	c.ec2Service = ec2.New(cfg)
+
+	return c, nil
+}
+
+func (c *Client) GetPrices() (map[string][]cloudprovider.ProductPrice, error) {
+	var computeInstancesPrices = make(map[string][]cloudprovider.ProductPrice, 0)
 
 	productsInput := &pricing.GetProductsInput{
 		Filters: []pricing.Filter{
@@ -60,7 +100,7 @@ func Get(pricingService *pricing.Pricing, region string) (map[string][]Item, err
 			{
 				Field: aws.String("location"),
 				Type:  pricing.FilterTypeTermMatch,
-				Value: aws.String(awsPartitions[region]), //TODO region to location??? bug, add PR to lib?
+				Value: aws.String(c.regionDescription), //TODO region to location??? bug, add PR to lib?
 			},
 		},
 		FormatVersion: aws.String("aws_v1"),
@@ -68,7 +108,7 @@ func Get(pricingService *pricing.Pricing, region string) (map[string][]Item, err
 		ServiceCode:   aws.String("AmazonEC2"),
 	}
 
-	productsRequest := pricingService.GetProductsRequest(productsInput)
+	productsRequest := c.pricingService.GetProductsRequest(productsInput)
 
 	productsPager := productsRequest.Paginate()
 	for productsPager.Next() {
@@ -76,16 +116,10 @@ func Get(pricingService *pricing.Pricing, region string) (map[string][]Item, err
 
 		if page != nil {
 			for _, productItem := range page.PriceList {
-				//b, _ := json.Marshal(productItem)
 				var newPriceItem = getProduct(productItem)
-				//TODO: some prices even for usagetype HostBoxUsage equal to zero. need to fix it later
-				if newPriceItem.InstanceType == "" || newPriceItem.Memory == "" || newPriceItem.Vcpu == "" || newPriceItem.ValuePerUnit == "0.0000000000" {
-					//b, _ := json.Marshal(productItem)
-					//fmt.Printf("%s\n", b)
-				}
 				_, exists := computeInstancesPrices[newPriceItem.InstanceType]
 				if !exists {
-					computeInstancesPrices[newPriceItem.InstanceType] = make([]Item, 0, 0)
+					computeInstancesPrices[newPriceItem.InstanceType] = make([]cloudprovider.ProductPrice, 0, 0)
 				}
 				computeInstancesPrices[newPriceItem.InstanceType] = append(computeInstancesPrices[newPriceItem.InstanceType], newPriceItem)
 			}
@@ -93,8 +127,7 @@ func Get(pricingService *pricing.Pricing, region string) (map[string][]Item, err
 	}
 
 	if err := productsPager.Err(); err != nil {
-		fmt.Printf("failed to describe products, %v", err)
-		return nil, err
+		return nil, errors.Wrap(err, "failed to describe products")
 	}
 
 	fmt.Printf("found product prices: %v\n", len(computeInstancesPrices))
@@ -102,8 +135,8 @@ func Get(pricingService *pricing.Pricing, region string) (map[string][]Item, err
 }
 
 // TODO add checks and return error
-func getProduct(productItem aws.JSONValue) Item {
-	var pi = Item{}
+func getProduct(productItem aws.JSONValue) cloudprovider.ProductPrice {
+	var pi = cloudprovider.ProductPrice{}
 	productInterface, exists := productItem["product"]
 	if !exists {
 		fmt.Printf("product elemnt doesn't exist")
@@ -228,4 +261,30 @@ func getProduct(productItem aws.JSONValue) Item {
 	}
 
 	return pi
+}
+
+func (c *Client) GetComputeInstances() (map[string]cloudprovider.ComputeInstance, error) {
+	var instancesRequest = c.ec2Service.DescribeInstancesRequest(nil)
+	var result = map[string]cloudprovider.ComputeInstance{}
+	describeInstancesResponse, err := instancesRequest.Send()
+	if err != nil {
+		return nil, err
+	}
+
+	for _, instancesReservation := range describeInstancesResponse.Reservations {
+		for _, i := range instancesReservation.Instances {
+			if i.InstanceId == nil {
+				continue
+			}
+
+			var instanceType, _ = i.InstanceType.MarshalValue()
+
+			result[*i.InstanceId] = cloudprovider.ComputeInstance{
+				InstanceID:   *i.InstanceId,
+				InstanceType: instanceType,
+			}
+		}
+	}
+
+	return result, nil
 }

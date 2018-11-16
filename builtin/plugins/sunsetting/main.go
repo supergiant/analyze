@@ -3,12 +3,10 @@ package sunsetting
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/aws/aws-sdk-go-v2/aws"
 	"strings"
 
-	"github.com/aws/aws-sdk-go-v2/aws/external"
-	"github.com/aws/aws-sdk-go-v2/service/ec2"
-	"github.com/aws/aws-sdk-go-v2/service/pricing"
+	"github.com/supergiant/robot/builtin/plugins/sunsetting/cloudprovider"
+
 	"github.com/golang/protobuf/ptypes/any"
 	"github.com/golang/protobuf/ptypes/empty"
 	"github.com/pkg/errors"
@@ -17,17 +15,16 @@ import (
 	corev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 	"k8s.io/client-go/rest"
 
+	"github.com/supergiant/robot/builtin/plugins/sunsetting/cloudprovider/aws"
 	"github.com/supergiant/robot/builtin/plugins/sunsetting/kube"
-	"github.com/supergiant/robot/builtin/plugins/sunsetting/prices"
 	"github.com/supergiant/robot/pkg/plugin/proto"
 )
 
 type plugin struct {
-	config       *proto.PluginConfig
-	ec2Service   *ec2.EC2
-	сoreV1Client *corev1.CoreV1Client
-
-	computeInstancesPrices map[string][]prices.Item
+	config                 *proto.PluginConfig
+	сoreV1Client           *corev1.CoreV1Client
+	awsClient              *aws.Client
+	computeInstancesPrices map[string][]cloudprovider.ProductPrice
 }
 
 var checkResult = &proto.CheckResult{
@@ -61,48 +58,47 @@ func (u *plugin) Check(ctx context.Context, in *proto.CheckRequest, opts ...grpc
 		return nil, errors.Wrap(err, "unable to get nodeResourceRequirements")
 	}
 
-	ec2Reservations, err := getEC2Reservations(u.ec2Service)
+	computeInstances, err := u.awsClient.GetComputeInstances()
 	if err != nil {
 		fmt.Printf("failed to describe ec2 instances, %v", err)
 		return nil, errors.Wrap(err, "failed to describe ec2 instances")
 	}
 
 	var unsortedEntries = []*InstanceEntry{}
+	var unsorted = []InstanceEntry{}
 
 	// create InstanceEntries by combining nodeResourceRequirements with ec2 instance type and price
-	for _, instancesReservation := range ec2Reservations {
-		for _, i := range instancesReservation.Instances {
-			if i.InstanceId == nil {
-				continue
-			}
-			var kubeNode, exists = nodeResourceRequirements[*i.InstanceId]
-			if !exists {
-				continue
-			}
-
-			var instanceType, _ = i.InstanceType.MarshalValue()
-
-			// TODO: fix me when prices collecting will be clear
-			// TODO: We need to match it with instance tenancy?
-			var instanceTypePrice prices.Item
-			var instanceTypePrices, exist = u.computeInstancesPrices[instanceType]
-			if exist {
-				for _, priceItem := range instanceTypePrices {
-					if strings.Contains(priceItem.UsageType, "BoxUsage") {
-						instanceTypePrice = priceItem
-					}
-				}
-				if instanceTypePrice.InstanceType == "" && len(instanceTypePrices) > 0 {
-					instanceTypePrice = instanceTypePrices[0]
-				}
-			}
-
-			unsortedEntries = append(unsortedEntries, &InstanceEntry{
-				InstanceType:             instanceType,
-				Price:                    &instanceTypePrice,
-				NodeResourceRequirements: kubeNode,
-			})
+	for InstanceID, computeInstance := range computeInstances {
+		var kubeNode, exists = nodeResourceRequirements[InstanceID]
+		if !exists {
+			continue
 		}
+
+		// TODO: fix me when prices collecting will be clear
+		// TODO: We need to match it with instance tenancy?
+		var instanceTypePrice cloudprovider.ProductPrice
+		var instanceTypePrices, exist = u.computeInstancesPrices[computeInstance.InstanceType]
+		if exist {
+			for _, priceItem := range instanceTypePrices {
+				if strings.Contains(priceItem.UsageType, "BoxUsage") {
+					instanceTypePrice = priceItem
+				}
+			}
+			if instanceTypePrice.InstanceType == "" && len(instanceTypePrices) > 0 {
+				instanceTypePrice = instanceTypePrices[0]
+			}
+		}
+
+		unsorted = append(unsorted, InstanceEntry{
+			CloudProvider:            computeInstance,
+			Price:                    instanceTypePrice,
+			NodeResourceRequirements: *kubeNode,
+		})
+		unsortedEntries = append(unsortedEntries, &InstanceEntry{
+			CloudProvider:            computeInstance,
+			Price:                    instanceTypePrice,
+			NodeResourceRequirements: *kubeNode,
+		})
 	}
 
 	var sortedByWastedRam = NewSortedEntriesByWastedRAM(unsortedEntries)
@@ -112,47 +108,36 @@ func (u *plugin) Check(ctx context.Context, in *proto.CheckRequest, opts ...grpc
 
 	var instancesToSunsetOptionTwo = CheckEachPodOneByOne(sortedByWastedRam, sortedByRequestedRam)
 
-	b, _ := json.Marshal(instancesToSunset)
-	bb, _ := json.Marshal(instancesToSunsetOptionTwo)
-	bbb, _ := json.Marshal(unsortedEntries)
+	var result = map[string]interface{}{
+		"allInstances":               unsorted,
+		"instancesToSunset":          instancesToSunset,
+		"instancesToSunsetOptionTwo": instancesToSunsetOptionTwo,
+	}
+	b, _ := json.Marshal(result)
 
 	checkResult.Description = &any.Any{
-		TypeUrl: "test",
-		Value:   append(b, append(bb, bbb...)...),
+		TypeUrl: "io.supergiant.analyze.plugin.sunsetting",
+		Value:   b,
 	}
 	checkResult.Status = proto.CheckStatus_GREEN
 	return &proto.CheckResponse{Result: checkResult}, nil
 }
 
-func (u *plugin) Configure(ctx context.Context, in *proto.PluginConfig, opts ...grpc.CallOption) (*empty.Empty, error) {
-	u.config = in
+func (u *plugin) Configure(ctx context.Context, pluginConfig *proto.PluginConfig, opts ...grpc.CallOption) (*empty.Empty, error) {
+	u.config = pluginConfig
 	//TODO: add here config validation in future
-
-	cfg, err := external.LoadDefaultAWSConfig()
-	if err != nil {
-		fmt.Printf("unable to load AWS SDK config,  %v", err)
-		return nil, errors.Wrap(err, "unable to load AWS SDK config")
-	}
-
-	var awsConfig = u.config.GetAwsConfig()
-	cfg.Credentials = aws.NewStaticCredentialsProvider(
-		awsConfig.GetAccessKeyId(),
-		awsConfig.GetSecretAccessKey(),
-		"",
-	)
-	// TODO bug in sdk?
-	cfg.Region = "us-east-1"
-	var pricingService = pricing.New(cfg)
-
-	//TODO may be add some init method to plugin?
-	u.computeInstancesPrices, err = prices.Get(pricingService, cfg.Region)
+	var awsClientConfig = pluginConfig.GetAwsConfig()
+	var awsClient, err = aws.NewClient(awsClientConfig)
 	if err != nil {
 		return nil, err
 	}
+	u.awsClient = awsClient
 
-	// set correct region for ec2 service
-	cfg.Region = awsConfig.GetRegion()
-	u.ec2Service = ec2.New(cfg)
+	//TODO: may be we need just log warning?
+	u.computeInstancesPrices, err = u.awsClient.GetPrices()
+	if err != nil {
+		return nil, err
+	}
 
 	// creates the in-cluster config
 	config, err := rest.InClusterConfig()
@@ -183,16 +168,4 @@ func (u *plugin) Stop(ctx context.Context, in *proto.Stop_Request, opts ...grpc.
 
 func (u *plugin) Action(ctx context.Context, in *proto.ActionRequest, opts ...grpc.CallOption) (*proto.ActionResponse, error) {
 	panic("implement me")
-}
-
-func getEC2Reservations(ec2Service *ec2.EC2) ([]ec2.RunInstancesOutput, error) {
-
-	instancesRequest := ec2Service.DescribeInstancesRequest(nil)
-
-	describeInstancesResponse, err := instancesRequest.Send()
-	if err != nil {
-		return nil, err
-	}
-
-	return describeInstancesResponse.Reservations, nil
 }

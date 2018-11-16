@@ -23,31 +23,31 @@ type resourceRequirementsPlugin struct {
 
 // TODO: this addition is till MVP, need to think and redesign while pluggability implementation
 type checkResponse struct {
-	Description               string
-	NodesResourceRequirements []nodeResourceRequirements
+	Description               string                     `json:"description,omitempty"`
+	NodesResourceRequirements []nodeResourceRequirements `json:"nodesResourceRequirements,omitempty"`
 }
 
 type nodeResourceRequirements struct {
-	NodeName                string
-	PodResourceRequirements []podResourceRequirements
+	NodeName                string                    `json:"nodeName,omitempty"`
+	PodResourceRequirements []podResourceRequirements `json:"podResourceRequirements,omitempty"`
 }
 
 type podResourceRequirements struct {
-	PodName                        string
-	ContainersResourceRequirements []containerResourceRequirements
+	PodName                        string                          `json:"podName,omitempty"`
+	ContainersResourceRequirements []containerResourceRequirements `json:"containersResourceRequirements,omitempty"`
 }
 
 type containerResourceRequirements struct {
-	ContainerName  string
-	ContainerImage string
+	ContainerName  string `json:"containerName,omitempty"`
+	ContainerImage string `json:"containerImage,omitempty"`
 	Requests       struct {
-		RAM string
-		CPU string
-	}
+		RAM string `json:"ram,omitempty"`
+		CPU string `json:"cpu,omitempty"`
+	} `json:"requests,omitempty"`
 	Limits struct {
-		RAM string
-		CPU string
-	}
+		RAM string `json:"ram,omitempty"`
+		CPU string `json:"cpu,omitempty"`
+	} `json:"limits,omitempty"`
 }
 
 const isNotSetStatus = "Is Not Set."
