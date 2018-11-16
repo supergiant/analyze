@@ -80,11 +80,13 @@ func (u *resourceRequirementsPlugin) Check(ctx context.Context, in *proto.CheckR
 		Actions: []*proto.Action{
 			&proto.Action{
 				ActionId:    "1",
-				Description: "Dismiss notification",
+				Name:        "Dismiss notification",
+				Description: "Dismiss notification, just prevents notification from being shown",
 			},
 			&proto.Action{
 				ActionId:    "2",
-				Description: "Set missing requests/limits",
+				Name:        "Set missing requests/limits",
+				Description: "Set missing requests/limits, provides possibility to set necessary limits and requests to pods",
 			},
 		},
 	}

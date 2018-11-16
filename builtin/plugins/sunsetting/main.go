@@ -10,17 +10,18 @@ import (
 	"github.com/golang/protobuf/ptypes/any"
 	"github.com/golang/protobuf/ptypes/empty"
 	"github.com/pkg/errors"
+	"golang.org/x/net/context"
+	"google.golang.org/grpc"
+
 	"github.com/supergiant/robot/builtin/plugins/sunsetting/cloudprovider/aws"
 	"github.com/supergiant/robot/builtin/plugins/sunsetting/kube"
 	"github.com/supergiant/robot/pkg/plugin/proto"
-	"golang.org/x/net/context"
-	"google.golang.org/grpc"
 )
 
 type plugin struct {
 	config                 *proto.PluginConfig
 	awsClient              *aws.Client
-	kubeClient              *kube.Client
+	kubeClient             *kube.Client
 	computeInstancesPrices map[string][]cloudprovider.ProductPrice
 }
 
@@ -35,11 +36,13 @@ var checkResult = &proto.CheckResult{
 	Actions: []*proto.Action{
 		&proto.Action{
 			ActionId:    "1",
-			Description: "Dismiss notification",
+			Name:        "Dismiss notification",
+			Description: "Dismiss notification, just prevents notification from being shown",
 		},
 		&proto.Action{
 			ActionId:    "2",
-			Description: "Sunset nodes",
+			Name:        "Sunset nodes",
+			Description: "Sunset nodes, makes request to capacity service to remove underutilized nodes.",
 		},
 	},
 }

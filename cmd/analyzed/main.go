@@ -149,6 +149,7 @@ func runCommand(cmd *cobra.Command, _ []string) error {
 				for _, action := range r.Actions {
 					actions = append(actions, &models.PluginAction{
 						Description: action.Description,
+						Name:        action.Name,
 						ID:          action.ActionId,
 					})
 				}

@@ -192,6 +192,10 @@ func init() {
         "id": {
           "description": "unique UUID of plugin action",
           "type": "string"
+        },
+        "name": {
+          "description": "name of plugin action",
+          "type": "string"
         }
       }
     }
@@ -371,6 +375,10 @@ func init() {
         },
         "id": {
           "description": "unique UUID of plugin action",
+          "type": "string"
+        },
+        "name": {
+          "description": "name of plugin action",
           "type": "string"
         }
       }

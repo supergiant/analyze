@@ -20,6 +20,9 @@ type PluginAction struct {
 
 	// unique UUID of plugin action
 	ID string `json:"id,omitempty"`
+
+	// name of plugin action
+	Name string `json:"name,omitempty"`
 }
 
 // Validate validates this plugin action

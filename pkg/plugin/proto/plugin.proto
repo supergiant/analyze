@@ -73,7 +73,8 @@ enum CheckStatus {
 
 message Action {
     string action_id = 1; // it is impossible ty make actions typed
-    string description = 2;
+    string name = 2;
+    string description = 3;
 }
 
 message ActionRequest {
