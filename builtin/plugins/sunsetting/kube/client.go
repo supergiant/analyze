@@ -1,6 +1,7 @@
 package kube
 
 import (
+	"k8s.io/client-go/rest"
 	"strings"
 
 	corev1api "k8s.io/api/core/v1"
@@ -9,10 +10,31 @@ import (
 	corev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 )
 
-func GetNodeResourceRequirements(сoreV1Client *corev1.CoreV1Client) (map[string]*NodeResourceRequirements, error) {
+type Client struct {
+	сoreV1Client *corev1.CoreV1Client
+}
+
+func NewKubeClient() (*Client, error) {
+	// creates the in-cluster config
+	config, err := rest.InClusterConfig()
+	if err != nil {
+		return nil, err
+	}
+	// creates the client
+	сoreV1Client, err := corev1.NewForConfig(config)
+	if err != nil {
+		return nil, err
+	}
+
+	return &Client{
+		сoreV1Client: сoreV1Client,
+	}, nil
+}
+
+func (c *Client) GetNodeResourceRequirements() (map[string]*NodeResourceRequirements, error) {
 	var instanceEntries = map[string]*NodeResourceRequirements{}
 
-	nodes, err := сoreV1Client.Nodes().List(metav1.ListOptions{})
+	nodes, err := c.сoreV1Client.Nodes().List(metav1.ListOptions{})
 	if err != nil {
 		return nil, err
 	}
@@ -23,7 +45,7 @@ func GetNodeResourceRequirements(сoreV1Client *corev1.CoreV1Client) (map[string
 			return nil, err
 		}
 
-		nonTerminatedPodsList, err := сoreV1Client.Pods("").List(metav1.ListOptions{FieldSelector: fieldSelector.String()})
+		nonTerminatedPodsList, err := c.сoreV1Client.Pods("").List(metav1.ListOptions{FieldSelector: fieldSelector.String()})
 		if err != nil {
 			return nil, err
 		}

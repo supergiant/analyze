@@ -10,20 +10,17 @@ import (
 	"github.com/golang/protobuf/ptypes/any"
 	"github.com/golang/protobuf/ptypes/empty"
 	"github.com/pkg/errors"
-	"golang.org/x/net/context"
-	"google.golang.org/grpc"
-	corev1 "k8s.io/client-go/kubernetes/typed/core/v1"
-	"k8s.io/client-go/rest"
-
 	"github.com/supergiant/robot/builtin/plugins/sunsetting/cloudprovider/aws"
 	"github.com/supergiant/robot/builtin/plugins/sunsetting/kube"
 	"github.com/supergiant/robot/pkg/plugin/proto"
+	"golang.org/x/net/context"
+	"google.golang.org/grpc"
 )
 
 type plugin struct {
 	config                 *proto.PluginConfig
-	сoreV1Client           *corev1.CoreV1Client
 	awsClient              *aws.Client
+	kubeClient              *kube.Client
 	computeInstancesPrices map[string][]cloudprovider.ProductPrice
 }
 
@@ -52,7 +49,7 @@ func NewPlugin() proto.PluginClient {
 }
 
 func (u *plugin) Check(ctx context.Context, in *proto.CheckRequest, opts ...grpc.CallOption) (*proto.CheckResponse, error) {
-	var nodeResourceRequirements, err = kube.GetNodeResourceRequirements(u.сoreV1Client)
+	var nodeResourceRequirements, err = u.kubeClient.GetNodeResourceRequirements()
 	if err != nil {
 		fmt.Printf("unable to get nodeResourceRequirements, %v", err)
 		return nil, errors.Wrap(err, "unable to get nodeResourceRequirements")
@@ -139,18 +136,12 @@ func (u *plugin) Configure(ctx context.Context, pluginConfig *proto.PluginConfig
 		return nil, err
 	}
 
-	// creates the in-cluster config
-	config, err := rest.InClusterConfig()
-	if err != nil {
-		return nil, err
-	}
-	// creates the client
-	u.сoreV1Client, err = corev1.NewForConfig(config)
+	u.kubeClient, err = kube.NewKubeClient()
 	if err != nil {
 		return nil, err
 	}
 
-	return nil, nil
+	return &empty.Empty{}, nil
 }
 
 func (u *plugin) Info(ctx context.Context, in *empty.Empty, opts ...grpc.CallOption) (*proto.PluginInfo, error) {
