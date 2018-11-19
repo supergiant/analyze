@@ -92,21 +92,18 @@ func (u *plugin) Check(ctx context.Context, in *proto.CheckRequest, opts ...grpc
 		unsorted = append(unsorted, InstanceEntry{
 			CloudProvider:            computeInstance,
 			Price:                    instanceTypePrice,
-			NodeResourceRequirements: *kubeNode,
+			WorkerNode: *kubeNode,
 		})
 		unsortedEntries = append(unsortedEntries, &InstanceEntry{
 			CloudProvider:            computeInstance,
 			Price:                    instanceTypePrice,
-			NodeResourceRequirements: *kubeNode,
+			WorkerNode: *kubeNode,
 		})
 	}
 
-	var sortedByWastedRam = NewSortedEntriesByWastedRAM(unsortedEntries)
-	var sortedByRequestedRam = NewSortedEntriesByRequestedRAM(unsortedEntries)
+	var instancesToSunset = CheckAllPodsAtATime(unsortedEntries)
 
-	var instancesToSunset = CheckAllPodsAtATime(sortedByWastedRam)
-
-	var instancesToSunsetOptionTwo = CheckEachPodOneByOne(sortedByWastedRam, sortedByRequestedRam)
+	var instancesToSunsetOptionTwo = CheckEachPodOneByOne(unsortedEntries)
 
 	var result = map[string]interface{}{
 		"allInstances":               unsorted,

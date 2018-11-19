@@ -13,19 +13,19 @@ import (
 type InstanceEntry struct {
 	CloudProvider                 cloudprovider.ComputeInstance `json:"cloudProvider"`
 	Price                         cloudprovider.ProductPrice    `json:"price"`
-	kube.NodeResourceRequirements `json:"kube"`
+	WorkerNode kube.NodeResourceRequirements `json:"kube"`
 }
 
 func (m *InstanceEntry) RAMWasted() int64 {
-	return m.AllocatableMemory - m.MemoryReqs()
+	return m.WorkerNode.AllocatableMemory - m.WorkerNode.MemoryReqs()
 }
 
 func (m *InstanceEntry) RAMRequested() int64 {
-	return m.MemoryReqs()
+	return m.WorkerNode.MemoryReqs()
 }
 
 func (m *InstanceEntry) CPUWasted() int64 {
-	return m.AllocatableCpu - m.CpuReqs()
+	return m.WorkerNode.AllocatableCpu - m.WorkerNode.CpuReqs()
 }
 
 // EntriesByWastedRAM implements sort.Interface based on the value returned by NodeResourceRequirements.RAMWasted().
@@ -37,12 +37,15 @@ func NewSortedEntriesByWastedRAM(in []*InstanceEntry) EntriesByWastedRAM {
 		var item = &InstanceEntry{
 			CloudProvider:            e.CloudProvider,
 			Price:                    e.Price,
-			NodeResourceRequirements: e.NodeResourceRequirements,
+			WorkerNode: e.WorkerNode,
 		}
-		for _, p := range e.NodeResourceRequirements.PodsResourceRequirements {
+		item.WorkerNode.PodsResourceRequirements = make([]*kube.PodResourceRequirements, len(e.WorkerNode.PodsResourceRequirements))
+		for j, p := range e.WorkerNode.PodsResourceRequirements {
 			var newP = *p
-			item.NodeResourceRequirements.PodsResourceRequirements = append(item.NodeResourceRequirements.PodsResourceRequirements, &newP)
+			item.WorkerNode.PodsResourceRequirements[j] = &newP
 		}
+		// we need to calculate totals because sorting logic is based on them
+		item.WorkerNode.RefreshTotals()
 
 		res[i] = item
 	}
@@ -65,13 +68,15 @@ func NewSortedEntriesByRequestedRAM(in []*InstanceEntry) EntriesByRequestedRAM {
 		var item = &InstanceEntry{
 			CloudProvider:            e.CloudProvider,
 			Price:                    e.Price,
-			NodeResourceRequirements: e.NodeResourceRequirements,
+			WorkerNode: e.WorkerNode,
 		}
-		for _, p := range e.NodeResourceRequirements.PodsResourceRequirements {
+		item.WorkerNode.PodsResourceRequirements = make([]*kube.PodResourceRequirements, len(e.WorkerNode.PodsResourceRequirements))
+		for j, p := range e.WorkerNode.PodsResourceRequirements {
 			var newP = *p
-			item.NodeResourceRequirements.PodsResourceRequirements = append(item.NodeResourceRequirements.PodsResourceRequirements, &newP)
+			item.WorkerNode.PodsResourceRequirements[j] = &newP
 		}
-
+		// we need to calculate totals because sorting logic is based on them
+		item.WorkerNode.RefreshTotals()
 		res[i] = item
 	}
 	var entries = EntriesByRequestedRAM(res)

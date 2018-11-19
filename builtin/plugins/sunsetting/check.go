@@ -1,25 +1,49 @@
 package sunsetting
 
-import "sort"
+import (
+	"fmt"
+	"sort"
+)
 
 // CheckAllPodsAtATime makes simple check that it is possible to move all pods of a node to another node.
-func CheckAllPodsAtATime(entriesByWastedRam EntriesByWastedRAM) []InstanceEntry {
+func CheckAllPodsAtATime(unsortedEntries []*InstanceEntry) []InstanceEntry {
+	var entriesByWastedRam = NewSortedEntriesByWastedRAM(unsortedEntries)
+	//var entriesByWastedRam = NewSortedEntriesByWastedRAM(unsortedEntries)
 	var res = make([]InstanceEntry, 0)
 
+	for _, maxWastedRamEntry := range unsortedEntries {
+		fmt.Printf(
+			"unsortedEntries nodeID: %s, req: %v, wasted: %v\n",
+			maxWastedRamEntry.CloudProvider.InstanceID,
+			maxWastedRamEntry.RAMRequested(),
+			maxWastedRamEntry.RAMWasted(),
+		)}
+
+
 	for _, maxWastedRamEntry := range entriesByWastedRam {
+		fmt.Printf(
+			"nodeID: %s, req: %v, wasted: %v\n",
+			maxWastedRamEntry.CloudProvider.InstanceID,
+			maxWastedRamEntry.RAMRequested(),
+			maxWastedRamEntry.RAMWasted(),
+		)
+		maxWastedRamEntry.WorkerNode.RefreshTotals()
+
 		for i := len(entriesByWastedRam) - 1; i > 0; i-- {
+			var instanceWithMinimumWastedRam = entriesByWastedRam[i]
+			instanceWithMinimumWastedRam.WorkerNode.RefreshTotals()
 			// check that all requested memory of instance can be moved to another instance
-			var wastedRam = entriesByWastedRam[i].AllocatableMemory - entriesByWastedRam[i].MemoryReqs()
-			var wastedCpu = entriesByWastedRam[i].AllocatableCpu - entriesByWastedRam[i].CpuReqs()
-			if maxWastedRamEntry.MemoryReqs() <= wastedRam && maxWastedRamEntry.CpuReqs() <= wastedCpu {
+			var wastedRam = instanceWithMinimumWastedRam.RAMWasted()
+			var wastedCpu = instanceWithMinimumWastedRam.CPUWasted()
+			if maxWastedRamEntry.WorkerNode.MemoryReqs() <= wastedRam && maxWastedRamEntry.WorkerNode.CpuReqs() <= wastedCpu {
 				//sunset this instance
 				res = append(res, *maxWastedRamEntry)
 				//change memory requests of node which receive all workload
-				entriesByWastedRam[i].PodsResourceRequirements = append(entriesByWastedRam[i].PodsResourceRequirements, maxWastedRamEntry.PodsResourceRequirements...)
-				entriesByWastedRam[i].RefreshTotals()
+				instanceWithMinimumWastedRam.WorkerNode.PodsResourceRequirements = append(instanceWithMinimumWastedRam.WorkerNode.PodsResourceRequirements, maxWastedRamEntry.WorkerNode.PodsResourceRequirements...)
+				instanceWithMinimumWastedRam.WorkerNode.RefreshTotals()
 
-				maxWastedRamEntry.PodsResourceRequirements = nil
-				maxWastedRamEntry.RefreshTotals()
+				maxWastedRamEntry.WorkerNode.PodsResourceRequirements = nil
+				maxWastedRamEntry.WorkerNode.RefreshTotals()
 				break
 			}
 		}
@@ -28,34 +52,36 @@ func CheckAllPodsAtATime(entriesByWastedRam EntriesByWastedRAM) []InstanceEntry 
 	return res
 }
 
-func CheckEachPodOneByOne(entriesByWastedRam EntriesByWastedRAM, entriesByRequestedRAM EntriesByRequestedRAM) []InstanceEntry {
+func CheckEachPodOneByOne(unsortedEntries []*InstanceEntry) []InstanceEntry {
+	var entriesByWastedRam = NewSortedEntriesByWastedRAM(unsortedEntries)
+	var entriesByRequestedRAM = NewSortedEntriesByRequestedRAM(unsortedEntries)
 	var res = make([]InstanceEntry, 0)
 
 	for _, maxWastedRamEntry := range entriesByWastedRam {
 		// sort pods in descending order by requested memory
 		sort.Slice(
-			maxWastedRamEntry.PodsResourceRequirements,
+			maxWastedRamEntry.WorkerNode.PodsResourceRequirements,
 			func(i, j int) bool {
-				return maxWastedRamEntry.PodsResourceRequirements[i].MemoryReqs > maxWastedRamEntry.PodsResourceRequirements[j].MemoryReqs
+				return maxWastedRamEntry.WorkerNode.PodsResourceRequirements[i].MemoryReqs > maxWastedRamEntry.WorkerNode.PodsResourceRequirements[j].MemoryReqs
 			},
 		)
 
 		// check
-		for i := 0; i < len(maxWastedRamEntry.PodsResourceRequirements); i++ {
-			var podRR = maxWastedRamEntry.PodsResourceRequirements[i]
+		for i := 0; i < len(maxWastedRamEntry.WorkerNode.PodsResourceRequirements); i++ {
+			var podRR = maxWastedRamEntry.WorkerNode.PodsResourceRequirements[i]
 			for _, maxRequestedRamEntry := range entriesByRequestedRAM {
 				if maxRequestedRamEntry.RAMWasted() >= podRR.MemoryReqs && maxRequestedRamEntry.CPUWasted() >= podRR.CpuReqs {
 					// we can move the pod
 					// delete it from  maxWastedRamEntry
-					maxWastedRamEntry.PodsResourceRequirements = append(maxWastedRamEntry.PodsResourceRequirements[:i], maxWastedRamEntry.PodsResourceRequirements[i+1:]...)
-					maxWastedRamEntry.RefreshTotals()
+					maxWastedRamEntry.WorkerNode.PodsResourceRequirements = append(maxWastedRamEntry.WorkerNode.PodsResourceRequirements[:i], maxWastedRamEntry.WorkerNode.PodsResourceRequirements[i+1:]...)
+					maxWastedRamEntry.WorkerNode.RefreshTotals()
 					//and add to maxRequestedRamEntry
-					maxRequestedRamEntry.PodsResourceRequirements = append(maxRequestedRamEntry.PodsResourceRequirements, podRR)
-					maxRequestedRamEntry.RefreshTotals()
+					maxRequestedRamEntry.WorkerNode.PodsResourceRequirements = append(maxRequestedRamEntry.WorkerNode.PodsResourceRequirements, podRR)
+					maxRequestedRamEntry.WorkerNode.RefreshTotals()
 				}
 			}
 		}
-		if len(maxWastedRamEntry.PodsResourceRequirements) == 0 {
+		if len(maxWastedRamEntry.WorkerNode.PodsResourceRequirements) == 0 {
 			res = append(res, *maxWastedRamEntry)
 		}
 	}

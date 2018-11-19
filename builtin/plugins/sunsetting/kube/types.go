@@ -34,6 +34,15 @@ type PodResourceRequirements struct {
 // RefreshTotals recalculates total node requests and limits and their fractional representation
 // need to be invoked every time when PodsResourceRequirements or AllocatableMemory or AllocatableCpu where changed
 func (n *NodeResourceRequirements) RefreshTotals() {
+	n.cpuReqs = 0
+	n.cpuLimits = 0
+	n.memoryReqs = 0
+	n.memoryLimits = 0
+	n.fractionCpuReqs = 0
+	n.fractionCpuLimits = 0
+	n.fractionMemoryReqs = 0
+	n.fractionMemoryLimits = 0
+
 	for _, podRR := range n.PodsResourceRequirements {
 		n.cpuReqs += podRR.CpuReqs
 		n.cpuLimits += podRR.CpuLimits
