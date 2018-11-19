@@ -23,34 +23,32 @@ type resourceRequirementsPlugin struct {
 
 // TODO: this addition is till MVP, need to think and redesign while pluggability implementation
 type checkResponse struct {
-	Description               string                     `json:"description,omitempty"`
-	NodesResourceRequirements []nodeResourceRequirements `json:"nodesResourceRequirements,omitempty"`
+	Description               string                     `json:"description"`
+	NodesResourceRequirements []nodeResourceRequirements `json:"nodesResourceRequirements"`
 }
 
 type nodeResourceRequirements struct {
-	NodeName                string                    `json:"nodeName,omitempty"`
-	PodResourceRequirements []podResourceRequirements `json:"podResourceRequirements,omitempty"`
+	NodeName                string                    `json:"nodeName"`
+	PodResourceRequirements []podResourceRequirements `json:"podResourceRequirements"`
 }
 
 type podResourceRequirements struct {
-	PodName                        string                          `json:"podName,omitempty"`
-	ContainersResourceRequirements []containerResourceRequirements `json:"containersResourceRequirements,omitempty"`
+	PodName                        string                          `json:"podName"`
+	ContainersResourceRequirements []containerResourceRequirements `json:"containersResourceRequirements"`
 }
 
 type containerResourceRequirements struct {
-	ContainerName  string `json:"containerName,omitempty"`
-	ContainerImage string `json:"containerImage,omitempty"`
+	ContainerName  string `json:"containerName"`
+	ContainerImage string `json:"containerImage"`
 	Requests       struct {
-		RAM string `json:"ram,omitempty"`
-		CPU string `json:"cpu,omitempty"`
-	} `json:"requests,omitempty"`
+		RAM int64 `json:"ram"`
+		CPU int64 `json:"cpu"`
+	} `json:"requests"`
 	Limits struct {
-		RAM string `json:"ram,omitempty"`
-		CPU string `json:"cpu,omitempty"`
-	} `json:"limits,omitempty"`
+		RAM int64 `json:"ram"`
+		CPU int64 `json:"cpu"`
+	} `json:"limits"`
 }
-
-const isNotSetStatus = "Is Not Set."
 
 func NewPlugin() proto.PluginClient {
 	return &resourceRequirementsPlugin{}
@@ -190,30 +188,26 @@ func describeResourceRequirements(container v1.Container) (containerResourceRequ
 	var requestIsAbsent bool
 
 	if !container.Resources.Limits.Cpu().IsZero() {
-		result.Limits.CPU = container.Resources.Limits.Cpu().String()
+		result.Limits.CPU = container.Resources.Limits.Cpu().MilliValue()
 	} else {
-		result.Limits.CPU = isNotSetStatus
 		limitIsAbsent = true
 	}
 
 	if !container.Resources.Limits.Memory().IsZero() {
-		result.Limits.RAM = container.Resources.Limits.Memory().String()
+		result.Limits.RAM = container.Resources.Limits.Memory().Value()
 	} else {
-		result.Limits.RAM = isNotSetStatus
 		limitIsAbsent = true
 	}
 
 	if !container.Resources.Requests.Cpu().IsZero() {
-		result.Requests.CPU = container.Resources.Requests.Cpu().String()
+		result.Requests.CPU = container.Resources.Requests.Cpu().MilliValue()
 	} else {
-		result.Requests.CPU = isNotSetStatus
 		requestIsAbsent = true
 	}
 
 	if !container.Resources.Requests.Memory().IsZero() {
-		result.Requests.RAM = container.Resources.Requests.Memory().String()
+		result.Requests.RAM = container.Resources.Requests.Memory().Value()
 	} else {
-		result.Requests.RAM = isNotSetStatus
 		requestIsAbsent = true
 	}
 

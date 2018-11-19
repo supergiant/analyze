@@ -1,6 +1,7 @@
 package aws
 
 import (
+	"encoding/json"
 	"fmt"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
@@ -116,12 +117,16 @@ func (c *Client) GetPrices() (map[string][]cloudprovider.ProductPrice, error) {
 
 		if page != nil {
 			for _, productItem := range page.PriceList {
-				var newPriceItem = getProduct(productItem)
+				var newPriceItem, err = getProduct(productItem)
+				if err != nil {
+					// it is not critical need just to log it
+					//return nil, err
+				}
 				_, exists := computeInstancesPrices[newPriceItem.InstanceType]
 				if !exists {
 					computeInstancesPrices[newPriceItem.InstanceType] = make([]cloudprovider.ProductPrice, 0, 0)
 				}
-				computeInstancesPrices[newPriceItem.InstanceType] = append(computeInstancesPrices[newPriceItem.InstanceType], newPriceItem)
+				computeInstancesPrices[newPriceItem.InstanceType] = append(computeInstancesPrices[newPriceItem.InstanceType], *newPriceItem)
 			}
 		}
 	}
@@ -135,132 +140,61 @@ func (c *Client) GetPrices() (map[string][]cloudprovider.ProductPrice, error) {
 }
 
 // TODO add checks and return error
-func getProduct(productItem aws.JSONValue) cloudprovider.ProductPrice {
-	var pi = cloudprovider.ProductPrice{}
-	productInterface, exists := productItem["product"]
-	if !exists {
-		fmt.Printf("product elemnt doesn't exist")
-		return pi
+func getProduct(productItem aws.JSONValue) (*cloudprovider.ProductPrice, error) {
+	var result = &cloudprovider.ProductPrice{}
+	type productPrice struct {
+		Product struct {
+			Attributes struct {
+				InstanceType string `json:"instanceType"`
+				Memory       string `json:"memory"`
+				Vcpu         string `json:"vcpu"`
+				Usagetype    string `json:"usagetype"`
+				Tenancy      string `json:"tenancy"`
+			} `json:"attributes"`
+		} `json:"product"`
+		Terms struct {
+			OnDemand map[string]struct {
+				PriceDimensions map[string]struct {
+					Unit         string `json:"unit"`
+					PricePerUnit struct {
+						USDRate string `json:"USD"`
+					} `json:"pricePerUnit"`
+				} `json:"priceDimensions"`
+			} `json:"OnDemand"`
+		} `json:"terms"`
 	}
 
-	product, ok := productInterface.(map[string]interface{})
-	if !ok {
-		fmt.Printf("product elemnt is not map")
-		return pi
+	// oh boy, marshal again?
+	b, err := json.Marshal(productItem)
+	if err != nil {
+		return nil, err
 	}
 
-	attributes, exists := product["attributes"]
-	if !exists {
-		fmt.Printf("product elemnt doesn't exist")
-		return pi
+	var pp = &productPrice{}
+	err = json.Unmarshal(b, pp)
+	if err != nil {
+		return nil, err
 	}
 
-	attrs, ok := attributes.(map[string]interface{})
-	if !ok {
-		fmt.Printf("attributes elemnt doesn't exist")
-		return pi
+	result.InstanceType = pp.Product.Attributes.InstanceType
+	result.Memory = pp.Product.Attributes.Memory
+	result.Vcpu = pp.Product.Attributes.Vcpu
+	result.UsageType = pp.Product.Attributes.Usagetype
+	result.Tenancy = pp.Product.Attributes.Tenancy
+	if len(pp.Terms.OnDemand) < 1 {
+		return nil, errors.New("there is no OnDemand prices")
 	}
 
-	value := attrs["instanceType"]
-	pi.InstanceType, _ = value.(string)
-	value = attrs["memory"]
-	pi.Memory, _ = value.(string)
-	value = attrs["vcpu"]
-	pi.Vcpu, _ = value.(string)
-	value = attrs["usagetype"]
-	pi.UsageType, _ = value.(string)
-	value = attrs["tenancy"]
-	pi.Tenancy, _ = value.(string)
-
-	termsInterface, exists := productItem["terms"]
-	if !exists {
-		fmt.Printf("terms elemnt doesn't exist")
-		return pi
-	}
-
-	terms, ok := termsInterface.(map[string]interface{})
-	if !ok {
-		fmt.Printf("terms elemnt is not map")
-		return pi
-	}
-
-	onDemandInterface, exists := terms["OnDemand"]
-	if !exists {
-		fmt.Printf("OnDemand elemnt doesn't exist")
-		return pi
-	}
-
-	onDemand, ok := onDemandInterface.(map[string]interface{})
-	if !ok {
-		fmt.Printf("onDemand elemnt is not map")
-		return pi
-	}
-
-	for _, skuValueInterface := range onDemand {
-		skuValue, ok := skuValueInterface.(map[string]interface{})
-		if !ok {
-			fmt.Printf("skuValue elemnt is not map")
-			return pi
+	for _, term := range pp.Terms.OnDemand {
+		for _, onDemandTerm := range term.PriceDimensions {
+			result.Unit = onDemandTerm.Unit
+			result.ValuePerUnit = onDemandTerm.PricePerUnit.USDRate
+			result.Currency = "USD"
 		}
 
-		priceDimensionsInterface, exists := skuValue["priceDimensions"]
-		if !exists {
-			fmt.Printf("priceDimensions elemnt doesn't exist")
-			return pi
-		}
-
-		priceDimensions, ok := priceDimensionsInterface.(map[string]interface{})
-		if !ok {
-			fmt.Printf("priceDimensions elemnt is not map")
-			return pi
-		}
-
-		for _, priceDimentionInterface := range priceDimensions {
-			priceDimention, ok := priceDimentionInterface.(map[string]interface{})
-			if !ok {
-				fmt.Printf("priceDimention elemnt is not map")
-				return pi
-			}
-
-			unitInterface, exists := priceDimention["unit"]
-			if !exists {
-				fmt.Printf("unit elemnt doesn't exist")
-				return pi
-			}
-
-			pi.Unit, ok = unitInterface.(string)
-			if !ok {
-				fmt.Printf("unit elemnt is not string")
-				return pi
-			}
-
-			pricePerUnitInterface, exists := priceDimention["pricePerUnit"]
-			if !exists {
-				fmt.Printf("pricePerUnit elemnt doesn't exist")
-				return pi
-			}
-
-			pricePerUnit, ok := pricePerUnitInterface.(map[string]interface{})
-			if !ok {
-				fmt.Printf("pricePerUnit elemnt is not map")
-				return pi
-			}
-
-			for k, v := range pricePerUnit {
-				pi.Currency = k
-
-				pi.ValuePerUnit, ok = v.(string)
-				if !ok {
-					fmt.Printf("valuePerUnit elemnt is not map")
-					return pi
-				}
-				return pi
-			}
-
-		}
 	}
 
-	return pi
+	return result, nil
 }
 
 func (c *Client) GetComputeInstances() (map[string]cloudprovider.ComputeInstance, error) {

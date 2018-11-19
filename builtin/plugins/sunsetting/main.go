@@ -80,7 +80,7 @@ func (u *plugin) Check(ctx context.Context, in *proto.CheckRequest, opts ...grpc
 		var instanceTypePrices, exist = u.computeInstancesPrices[computeInstance.InstanceType]
 		if exist {
 			for _, priceItem := range instanceTypePrices {
-				if strings.Contains(priceItem.UsageType, "BoxUsage") {
+				if strings.Contains(priceItem.UsageType, "BoxUsage") && priceItem.ValuePerUnit != "0.0000000000" {
 					instanceTypePrice = priceItem
 				}
 			}
