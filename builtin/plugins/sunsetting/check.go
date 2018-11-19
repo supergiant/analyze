@@ -1,8 +1,6 @@
 package sunsetting
 
-import (
-	"sort"
-)
+import "sort"
 
 // CheckAllPodsAtATime makes simple check that it is possible to move all pods of a node to another node.
 func CheckAllPodsAtATime(unsortedEntries []*InstanceEntry) []InstanceEntry {
@@ -42,7 +40,7 @@ func CheckEachPodOneByOne(unsortedEntries []*InstanceEntry) []InstanceEntry {
 	var res = make([]InstanceEntry, 0)
 
 	for _, maxWastedRamEntry := range entriesByWastedRam {
-		// sort pods in descending order by requested memory
+		// sort pods in descending order by requested memory to more effective pods packing on nodes
 		sort.Slice(
 			maxWastedRamEntry.WorkerNode.PodsResourceRequirements,
 			func(i, j int) bool {
@@ -62,6 +60,13 @@ func CheckEachPodOneByOne(unsortedEntries []*InstanceEntry) []InstanceEntry {
 					//and add to maxRequestedRamEntry
 					maxRequestedRamEntry.WorkerNode.PodsResourceRequirements = append(maxRequestedRamEntry.WorkerNode.PodsResourceRequirements, podRR)
 					maxRequestedRamEntry.WorkerNode.RefreshTotals()
+					// if last pod was moved out exit from loop and basically because of i == o we also exit from outer loop
+					if len(maxWastedRamEntry.WorkerNode.PodsResourceRequirements) == 0 {
+						break
+					}
+					// reset index to zero because after maxWastedRamEntry.WorkerNode.PodsResourceRequirements slice modification we need to start from scratch
+					i = 0
+					continue
 				}
 			}
 		}

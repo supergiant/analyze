@@ -255,3 +255,11 @@ func TestCheckAllPodsAtATime_CandidateForSunsettingFound(t *testing.T) {
 		t.Fatal(result)
 	}
 }
+
+func TestCheckEachPodOneByOne_CandidateForSunsettingFound(t *testing.T) {
+	in := unsortedEntries()
+	var result = CheckEachPodOneByOne(in)
+	if !(len(result) != 0 && result[0].CloudProvider.InstanceID == "i-03fb8e89232700cc3") {
+		t.Fatal(result)
+	}
+}

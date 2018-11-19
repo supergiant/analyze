@@ -31,6 +31,8 @@ func (m *InstanceEntry) CPUWasted() int64 {
 // EntriesByWastedRAM implements sort.Interface based on the value returned by NodeResourceRequirements.RAMWasted().
 type EntriesByWastedRAM []*InstanceEntry
 
+// NewSortedEntriesByWastedRAM makes deep copy of passed slice and invoke sort.Sort on it
+// NewSortedEntriesByWastedRAM returns copied slice sorted in descending order
 func NewSortedEntriesByWastedRAM(in []*InstanceEntry) EntriesByWastedRAM {
 	var res = make([]*InstanceEntry, len(in))
 	for i, e := range in {
@@ -62,6 +64,8 @@ func (e EntriesByWastedRAM) Swap(i, j int)      { e[i], e[j] = e[j], e[i] }
 // EntriesByRequestedRAM implements sort.Interface based on the value returned by NodeResourceRequirements.RAMRequested().
 type EntriesByRequestedRAM []*InstanceEntry
 
+// NewSortedEntriesByRequestedRAM makes deep copy of passed slice and invoke sort.Sort on it
+// NewSortedEntriesByRequestedRAM returns copied slice sorted in descending order
 func NewSortedEntriesByRequestedRAM(in []*InstanceEntry) EntriesByRequestedRAM {
 	var res = make([]*InstanceEntry, len(in))
 	for i, e := range in {

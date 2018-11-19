@@ -341,7 +341,7 @@ func TestWorkerNode_RefreshTotals_CorrectCounts(t *testing.T) {
 	}
 }
 
-func TestNewSortedEntriesByRequestedRAM_singleElement(t *testing.T) {
+func TestNewSortedEntriesByWastedRAM_singleElement(t *testing.T) {
 	var in = []*InstanceEntry{fixture()}
 
 	var sorted = NewSortedEntriesByWastedRAM(in)
@@ -356,7 +356,22 @@ func TestNewSortedEntriesByRequestedRAM_singleElement(t *testing.T) {
 	compareInstanceEntries(t, f, s)
 }
 
-func TestNewSortedEntriesByRequestedRAM_multipleElements(t *testing.T) {
+func TestNewSortedEntriesByRequestedRAM_elementsAreEqual(t *testing.T) {
+	var in = []*InstanceEntry{fixture()}
+
+	var sorted = NewSortedEntriesByRequestedRAM(in)
+
+	if len(in) != len(sorted) {
+		t.Fatal("incorrect number of items")
+	}
+
+	var f = in[0]
+	var s = sorted[0]
+
+	compareInstanceEntries(t, f, s)
+}
+
+func TestNewSortedEntriesByWastedRAM_multipleElements(t *testing.T) {
 	var in = fixtures()
 
 	var sorted = NewSortedEntriesByWastedRAM(in)
@@ -372,14 +387,27 @@ func TestNewSortedEntriesByRequestedRAM_multipleElements(t *testing.T) {
 			}
 		}
 	}
-
-	var f = in[0]
-	var s = sorted[0]
-
-	compareInstanceEntries(t, f, s)
 }
 
-func TestNewSortedEntriesByRequestedRAM_multipleInstanceEntriesAreSorted(t *testing.T) {
+func TestNewSortedEntriesByRequestedRAM_multipleElements(t *testing.T) {
+	var in = fixtures()
+
+	var sorted = NewSortedEntriesByRequestedRAM(in)
+
+	if len(in) != len(sorted) && len(sorted) == 1 {
+		t.Fatal("incorrect number of items")
+	}
+
+	for _, sortedItem := range sorted {
+		for _, unsortedItem := range in {
+			if sortedItem.CloudProvider.InstanceID == unsortedItem.CloudProvider.InstanceID {
+				compareInstanceEntries(t, unsortedItem, sortedItem)
+			}
+		}
+	}
+}
+
+func TestNewSortedEntriesByWastedRAM_multipleInstanceEntriesAreSorted(t *testing.T) {
 	var in = fixtures()
 	var wastedRam int64 = math.MaxInt64
 
@@ -396,6 +424,26 @@ func TestNewSortedEntriesByRequestedRAM_multipleInstanceEntriesAreSorted(t *test
 			t.Fatalf("looks like order of elemnts is not based of wasted ram. current item wasted memory: %v, previos: %v", item.RAMWasted(), wastedRam)
 		}
 		wastedRam = item.RAMWasted()
+	}
+}
+
+func TestNewSortedEntriesByRequestedRAM_multipleInstanceEntriesAreSorted(t *testing.T) {
+	var in = fixtures()
+	var requestedRam int64 = math.MaxInt64
+
+	var sorted = NewSortedEntriesByRequestedRAM(in)
+
+	if len(in) != len(sorted) && len(sorted) == 1 {
+		t.Fatal("incorrect number of items")
+	}
+
+	// sorting order is descending
+	for _, item := range sorted {
+		if item.RAMRequested() > requestedRam {
+			t.Log(sorted)
+			t.Fatalf("looks like order of elemnts is not based of wasted ram. current item wasted memory: %v, previos: %v", item.RAMWasted(), requestedRam)
+		}
+		requestedRam = item.RAMRequested()
 	}
 }
 
