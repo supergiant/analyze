@@ -11,9 +11,9 @@ import (
 // InstanceEntry struct represents Kelly's "instances to sunset" table entry,
 // It consists of some k8s cluster worker node params ans some ec2 instance params
 type InstanceEntry struct {
-	CloudProvider                 cloudprovider.ComputeInstance `json:"cloudProvider"`
-	Price                         cloudprovider.ProductPrice    `json:"price"`
-	WorkerNode kube.NodeResourceRequirements `json:"kube"`
+	CloudProvider cloudprovider.ComputeInstance `json:"cloudProvider"`
+	Price         cloudprovider.ProductPrice    `json:"price"`
+	WorkerNode    kube.NodeResourceRequirements `json:"kube"`
 }
 
 func (m *InstanceEntry) RAMWasted() int64 {
@@ -35,9 +35,9 @@ func NewSortedEntriesByWastedRAM(in []*InstanceEntry) EntriesByWastedRAM {
 	var res = make([]*InstanceEntry, len(in))
 	for i, e := range in {
 		var item = &InstanceEntry{
-			CloudProvider:            e.CloudProvider,
-			Price:                    e.Price,
-			WorkerNode: e.WorkerNode,
+			CloudProvider: e.CloudProvider,
+			Price:         e.Price,
+			WorkerNode:    e.WorkerNode,
 		}
 		item.WorkerNode.PodsResourceRequirements = make([]*kube.PodResourceRequirements, len(e.WorkerNode.PodsResourceRequirements))
 		for j, p := range e.WorkerNode.PodsResourceRequirements {
@@ -66,9 +66,9 @@ func NewSortedEntriesByRequestedRAM(in []*InstanceEntry) EntriesByRequestedRAM {
 	var res = make([]*InstanceEntry, len(in))
 	for i, e := range in {
 		var item = &InstanceEntry{
-			CloudProvider:            e.CloudProvider,
-			Price:                    e.Price,
-			WorkerNode: e.WorkerNode,
+			CloudProvider: e.CloudProvider,
+			Price:         e.Price,
+			WorkerNode:    e.WorkerNode,
 		}
 		item.WorkerNode.PodsResourceRequirements = make([]*kube.PodResourceRequirements, len(e.WorkerNode.PodsResourceRequirements))
 		for j, p := range e.WorkerNode.PodsResourceRequirements {

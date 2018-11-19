@@ -1,7 +1,6 @@
 package sunsetting
 
 import (
-	"fmt"
 	"sort"
 )
 
@@ -11,22 +10,7 @@ func CheckAllPodsAtATime(unsortedEntries []*InstanceEntry) []InstanceEntry {
 	//var entriesByWastedRam = NewSortedEntriesByWastedRAM(unsortedEntries)
 	var res = make([]InstanceEntry, 0)
 
-	for _, maxWastedRamEntry := range unsortedEntries {
-		fmt.Printf(
-			"unsortedEntries nodeID: %s, req: %v, wasted: %v\n",
-			maxWastedRamEntry.CloudProvider.InstanceID,
-			maxWastedRamEntry.RAMRequested(),
-			maxWastedRamEntry.RAMWasted(),
-		)}
-
-
 	for _, maxWastedRamEntry := range entriesByWastedRam {
-		fmt.Printf(
-			"nodeID: %s, req: %v, wasted: %v\n",
-			maxWastedRamEntry.CloudProvider.InstanceID,
-			maxWastedRamEntry.RAMRequested(),
-			maxWastedRamEntry.RAMWasted(),
-		)
 		maxWastedRamEntry.WorkerNode.RefreshTotals()
 
 		for i := len(entriesByWastedRam) - 1; i > 0; i-- {

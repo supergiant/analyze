@@ -90,14 +90,14 @@ func (u *plugin) Check(ctx context.Context, in *proto.CheckRequest, opts ...grpc
 		}
 
 		unsorted = append(unsorted, InstanceEntry{
-			CloudProvider:            computeInstance,
-			Price:                    instanceTypePrice,
-			WorkerNode: *kubeNode,
+			CloudProvider: computeInstance,
+			Price:         instanceTypePrice,
+			WorkerNode:    *kubeNode,
 		})
 		unsortedEntries = append(unsortedEntries, &InstanceEntry{
-			CloudProvider:            computeInstance,
-			Price:                    instanceTypePrice,
-			WorkerNode: *kubeNode,
+			CloudProvider: computeInstance,
+			Price:         instanceTypePrice,
+			WorkerNode:    *kubeNode,
 		})
 	}
 

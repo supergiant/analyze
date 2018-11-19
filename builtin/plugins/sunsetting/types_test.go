@@ -1,10 +1,11 @@
 package sunsetting
 
 import (
-	"github.com/supergiant/robot/builtin/plugins/sunsetting/cloudprovider"
-	"github.com/supergiant/robot/builtin/plugins/sunsetting/kube"
 	"math"
 	"testing"
+
+	"github.com/supergiant/robot/builtin/plugins/sunsetting/cloudprovider"
+	"github.com/supergiant/robot/builtin/plugins/sunsetting/kube"
 )
 
 var fixture = func() *InstanceEntry {
@@ -24,11 +25,11 @@ var fixture = func() *InstanceEntry {
 			Tenancy:      "Host",
 		},
 		WorkerNode: kube.NodeResourceRequirements{
-			Name:                     "ip-172-20-1-21.us-west-1.compute.internal",
-			Region:                   "us-west-1b",
-			InstanceID:               "i-028bc20adaf2311d6",
-			AllocatableCpu:           2000,
-			AllocatableMemory:        8260218880,
+			Name:              "ip-172-20-1-21.us-west-1.compute.internal",
+			Region:            "us-west-1b",
+			InstanceID:        "i-028bc20adaf2311d6",
+			AllocatableCpu:    2000,
+			AllocatableMemory: 8260218880,
 			PodsResourceRequirements: []*kube.PodResourceRequirements{
 				&kube.PodResourceRequirements{
 					PodName:      "dmts-es-1-elasticsearch-client-848f4d5db6-bvksx",
@@ -101,11 +102,11 @@ var fixtures = func() []*InstanceEntry {
 				Tenancy:      "Host",
 			},
 			WorkerNode: kube.NodeResourceRequirements{
-				Name:                     "ip-172-20-1-44.us-west-1.compute.internal",
-				Region:                   "us-west-1b",
-				InstanceID:               "i-03fb8e89232700cc3",
-				AllocatableCpu:           2000,
-				AllocatableMemory:        8260214784,
+				Name:              "ip-172-20-1-44.us-west-1.compute.internal",
+				Region:            "us-west-1b",
+				InstanceID:        "i-03fb8e89232700cc3",
+				AllocatableCpu:    2000,
+				AllocatableMemory: 8260214784,
 				PodsResourceRequirements: []*kube.PodResourceRequirements{
 					&kube.PodResourceRequirements{
 						PodName:      "dmts-es-1-elasticsearch-data-1",
@@ -182,11 +183,11 @@ var fixtures = func() []*InstanceEntry {
 				Tenancy:      "Host",
 			},
 			WorkerNode: kube.NodeResourceRequirements{
-				Name:                     "ip-172-20-1-21.us-west-1.compute.internal",
-				Region:                   "us-west-1b",
-				InstanceID:               "i-028bc20adaf2311d6",
-				AllocatableCpu:           2000,
-				AllocatableMemory:        8260218880,
+				Name:              "ip-172-20-1-21.us-west-1.compute.internal",
+				Region:            "us-west-1b",
+				InstanceID:        "i-028bc20adaf2311d6",
+				AllocatableCpu:    2000,
+				AllocatableMemory: 8260218880,
 				PodsResourceRequirements: []*kube.PodResourceRequirements{
 					&kube.PodResourceRequirements{
 						PodName:      "dmts-es-1-elasticsearch-client-848f4d5db6-bvksx",
@@ -256,11 +257,11 @@ var fixtures = func() []*InstanceEntry {
 				Tenancy:      "Host",
 			},
 			WorkerNode: kube.NodeResourceRequirements{
-				Name:                     "ip-172-20-1-242.us-west-1.compute.internal",
-				Region:                   "us-west-1b",
-				InstanceID:               "i-0898d927727329231",
-				AllocatableCpu:           2000,
-				AllocatableMemory:        8260218880,
+				Name:              "ip-172-20-1-242.us-west-1.compute.internal",
+				Region:            "us-west-1b",
+				InstanceID:        "i-0898d927727329231",
+				AllocatableCpu:    2000,
+				AllocatableMemory: 8260218880,
 				PodsResourceRequirements: []*kube.PodResourceRequirements{
 					&kube.PodResourceRequirements{
 						PodName:      "dmts-es-1-elasticsearch-client-848f4d5db6-xll2f",
@@ -327,15 +328,15 @@ var fixtures = func() []*InstanceEntry {
 func TestWorkerNode_RefreshTotals_CorrectCounts(t *testing.T) {
 	var in = fixture()
 
-	for i := 0; i< 50 ; i++ {
+	for i := 0; i < 50; i++ {
 		in.WorkerNode.RefreshTotals()
 	}
 
-	if in.RAMRequested() != 536870912 + 536870912 + 536870912 + 1610612736 + 536870912 + 268435456 + 0 {
+	if in.RAMRequested() != 536870912+536870912+536870912+1610612736+536870912+268435456+0 {
 		t.Fatal("RAMRequested returned incorrect value", in)
 	}
 
-	if in.RAMWasted() != 8260218880 - (536870912 + 536870912 + 536870912 + 1610612736 + 536870912 + 268435456 + 0) {
+	if in.RAMWasted() != 8260218880-(536870912+536870912+536870912+1610612736+536870912+268435456+0) {
 		t.Fatal("RAMWasted returned incorrect value", in)
 	}
 }
@@ -365,7 +366,7 @@ func TestNewSortedEntriesByRequestedRAM_multipleElements(t *testing.T) {
 	}
 
 	for _, sortedItem := range sorted {
-		for _, unsortedItem  := range in {
+		for _, unsortedItem := range in {
 			if sortedItem.CloudProvider.InstanceID == unsortedItem.CloudProvider.InstanceID {
 				compareInstanceEntries(t, unsortedItem, sortedItem)
 			}
@@ -398,7 +399,6 @@ func TestNewSortedEntriesByRequestedRAM_multipleInstanceEntriesAreSorted(t *test
 	}
 }
 
-
 func compareInstanceEntries(t *testing.T, f *InstanceEntry, s *InstanceEntry) {
 	t.Helper()
 
@@ -406,7 +406,7 @@ func compareInstanceEntries(t *testing.T, f *InstanceEntry, s *InstanceEntry) {
 		t.Fatal("price structures are not unequal ")
 	}
 
-	if  s.CloudProvider != f.CloudProvider {
+	if s.CloudProvider != f.CloudProvider {
 		t.Fatal("cloud provider structures are not unequal ")
 
 	}
@@ -417,7 +417,7 @@ func compareInstanceEntries(t *testing.T, f *InstanceEntry, s *InstanceEntry) {
 		f.WorkerNode.AllocatableCpu != s.WorkerNode.AllocatableCpu ||
 		f.WorkerNode.AllocatableMemory != s.WorkerNode.AllocatableMemory ||
 		f.WorkerNode.Region != s.WorkerNode.Region {
-			t.Logf("node 1: %v, node 2: %v ", f.WorkerNode, s.WorkerNode)
+		t.Logf("node 1: %v, node 2: %v ", f.WorkerNode, s.WorkerNode)
 		t.Fatal("WorkerNodes are not equal")
 	}
 

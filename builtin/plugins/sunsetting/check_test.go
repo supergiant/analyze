@@ -1,9 +1,10 @@
 package sunsetting
 
 import (
+	"testing"
+
 	"github.com/supergiant/robot/builtin/plugins/sunsetting/cloudprovider"
 	"github.com/supergiant/robot/builtin/plugins/sunsetting/kube"
-	"testing"
 )
 
 var unsortedEntries = func() []*InstanceEntry {
@@ -24,11 +25,11 @@ var unsortedEntries = func() []*InstanceEntry {
 				Tenancy:      "Host",
 			},
 			WorkerNode: kube.NodeResourceRequirements{
-				Name:                     "ip-172-20-1-44.us-west-1.compute.internal",
-				Region:                   "us-west-1b",
-				InstanceID:               "i-03fb8e89232700cc3",
-				AllocatableCpu:           2000,
-				AllocatableMemory:        8260214784,
+				Name:              "ip-172-20-1-44.us-west-1.compute.internal",
+				Region:            "us-west-1b",
+				InstanceID:        "i-03fb8e89232700cc3",
+				AllocatableCpu:    2000,
+				AllocatableMemory: 8260214784,
 				PodsResourceRequirements: []*kube.PodResourceRequirements{
 					&kube.PodResourceRequirements{
 						PodName:      "dmts-es-1-elasticsearch-data-1",
@@ -105,11 +106,11 @@ var unsortedEntries = func() []*InstanceEntry {
 				Tenancy:      "Host",
 			},
 			WorkerNode: kube.NodeResourceRequirements{
-				Name:                     "ip-172-20-1-21.us-west-1.compute.internal",
-				Region:                   "us-west-1b",
-				InstanceID:               "i-028bc20adaf2311d6",
-				AllocatableCpu:           2000,
-				AllocatableMemory:        8260218880,
+				Name:              "ip-172-20-1-21.us-west-1.compute.internal",
+				Region:            "us-west-1b",
+				InstanceID:        "i-028bc20adaf2311d6",
+				AllocatableCpu:    2000,
+				AllocatableMemory: 8260218880,
 				PodsResourceRequirements: []*kube.PodResourceRequirements{
 					&kube.PodResourceRequirements{
 						PodName:      "dmts-es-1-elasticsearch-client-848f4d5db6-bvksx",
@@ -179,11 +180,11 @@ var unsortedEntries = func() []*InstanceEntry {
 				Tenancy:      "Host",
 			},
 			WorkerNode: kube.NodeResourceRequirements{
-				Name:                     "ip-172-20-1-242.us-west-1.compute.internal",
-				Region:                   "us-west-1b",
-				InstanceID:               "i-0898d927727329231",
-				AllocatableCpu:           2000,
-				AllocatableMemory:        8260218880,
+				Name:              "ip-172-20-1-242.us-west-1.compute.internal",
+				Region:            "us-west-1b",
+				InstanceID:        "i-0898d927727329231",
+				AllocatableCpu:    2000,
+				AllocatableMemory: 8260218880,
 				PodsResourceRequirements: []*kube.PodResourceRequirements{
 					&kube.PodResourceRequirements{
 						PodName:      "dmts-es-1-elasticsearch-client-848f4d5db6-xll2f",
@@ -248,22 +249,9 @@ var unsortedEntries = func() []*InstanceEntry {
 }
 
 func TestCheckAllPodsAtATime_CandidateForSunsettingFound(t *testing.T) {
-	in :=  unsortedEntries()
-	//for _, d := range in{
-	//	t.Logf("req: %v, req: %v, allpc: %v", d.WorkerNode.MemoryReqs(), d.RAMRequested(), d.RAMWasted())
-	//	d.WorkerNode.RefreshTotals()
-	//	t.Logf("req: %v, req: %v, allpc: %v", d.WorkerNode.MemoryReqs(), d.RAMRequested(), d.RAMWasted())
-	//	d.WorkerNode.RefreshTotals()
-	//	t.Logf("req: %v, req: %v, allpc: %v", d.WorkerNode.MemoryReqs(), d.RAMRequested(), d.RAMWasted())
-	//}
-	//t.Logf("%+v", in)
+	in := unsortedEntries()
 	var result = CheckAllPodsAtATime(in)
-	//for _, i := range unsortedEntries() {
-	//	i.WorkerNode.RefreshTotals()
-	//	fmt.Printf("nodeID: %s, req: %v, wasted: %v\n", i.CloudProvider.InstanceID, float64(i.RAMRequested())/1000000000, float64(i.RAMWasted())/1000000000 )
-	//}
 	if !(len(result) != 0 && result[0].CloudProvider.InstanceID == "i-03fb8e89232700cc3") {
 		t.Fatal(result)
 	}
 }
-
