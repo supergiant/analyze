@@ -3,7 +3,8 @@ package kube
 import "encoding/json"
 
 type NodeResourceRequirements struct {
-	Name string
+	Name                  string
+	IsRecommendedToSunset bool
 	// extracted from ProviderID
 	Region     string
 	InstanceID string
@@ -96,6 +97,7 @@ func (n *NodeResourceRequirements) FractionMemoryLimits() float64 {
 func (n *NodeResourceRequirements) MarshalJSON() ([]byte, error) {
 	return json.Marshal(map[string]interface{}{
 		"name":                     n.Name,
+		"isRecommendedToSunset":    n.IsRecommendedToSunset,
 		"region":                   n.Region,
 		"instanceId":               n.InstanceID,
 		"podsResourceRequirements": n.PodsResourceRequirements,

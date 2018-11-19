@@ -64,8 +64,8 @@ func (u *plugin) Check(ctx context.Context, in *proto.CheckRequest, opts ...grpc
 		return nil, errors.Wrap(err, "failed to describe ec2 instances")
 	}
 
-	var unsortedEntries = []*InstanceEntry{}
-	var unsorted = []InstanceEntry{}
+	var unsortedEntries []*InstanceEntry
+	var result []InstanceEntry
 
 	// create InstanceEntries by combining nodeResourceRequirements with ec2 instance type and price
 	for InstanceID, computeInstance := range computeInstances {
@@ -89,7 +89,7 @@ func (u *plugin) Check(ctx context.Context, in *proto.CheckRequest, opts ...grpc
 			}
 		}
 
-		unsorted = append(unsorted, InstanceEntry{
+		result = append(result, InstanceEntry{
 			CloudProvider: computeInstance,
 			Price:         instanceTypePrice,
 			WorkerNode:    *kubeNode,
@@ -101,22 +101,34 @@ func (u *plugin) Check(ctx context.Context, in *proto.CheckRequest, opts ...grpc
 		})
 	}
 
-	var instancesToSunset = CheckAllPodsAtATime(unsortedEntries)
-
-	var instancesToSunsetOptionTwo = CheckEachPodOneByOne(unsortedEntries)
-
-	var result = map[string]interface{}{
-		"allInstances":               unsorted,
-		"instancesToSunset":          instancesToSunset,
-		"instancesToSunsetOptionTwo": instancesToSunsetOptionTwo,
+	//TODO: double check logic, is it really needed?
+	var instancesToSunset = CheckEachPodOneByOne(unsortedEntries)
+	if len(instancesToSunset) == 0 {
+		instancesToSunset = CheckAllPodsAtATime(unsortedEntries)
 	}
+
+	// mark nodes selected node with IsRecommendedToSunset == true
+	for i, _ := range result {
+		for _, entryToSunset := range instancesToSunset {
+			if entryToSunset.CloudProvider.InstanceID == result[i].CloudProvider.InstanceID {
+				result[i].WorkerNode.IsRecommendedToSunset = true
+			}
+		}
+	}
+
 	b, _ := json.Marshal(result)
 
 	checkResult.Description = &any.Any{
 		TypeUrl: "io.supergiant.analyze.plugin.sunsetting",
 		Value:   b,
 	}
-	checkResult.Status = proto.CheckStatus_GREEN
+
+	if len(instancesToSunset) == 0 {
+		checkResult.Status = proto.CheckStatus_GREEN
+	} else {
+		checkResult.Status = proto.CheckStatus_YELLOW
+	}
+
 	return &proto.CheckResponse{Result: checkResult}, nil
 }
 
