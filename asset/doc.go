@@ -1,5 +1,6 @@
 // asset package provides the assets via a virtual filesystem.
 package asset
+
 //package main
 
 import (

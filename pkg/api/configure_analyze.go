@@ -17,7 +17,6 @@ import (
 	"github.com/go-openapi/errors"
 	"github.com/go-openapi/runtime"
 	"github.com/rs/cors"
-
 )
 
 //go:generate swagger generate server --target ../pkg --name Analyze --spec ../swagger/api-spec.yml --server-package api --exclude-main
@@ -113,7 +112,7 @@ func uiMiddleware(handler http.Handler) http.Handler {
 
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 
-		if  !strings.HasPrefix(r.URL.Path, "/api/v1") {
+		if !strings.HasPrefix(r.URL.Path, "/api/v1") {
 			r.URL.Path = "/ui" + r.URL.Path
 			staticServer.ServeHTTP(w, r)
 			return
