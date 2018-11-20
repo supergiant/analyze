@@ -13,20 +13,20 @@ import (
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 
-	"github.com/supergiant/robot"
-	"github.com/supergiant/robot/builtin/plugins/requestslimitscheck"
-	"github.com/supergiant/robot/builtin/plugins/sunsetting"
-	"github.com/supergiant/robot/pkg/api"
-	"github.com/supergiant/robot/pkg/api/handlers"
-	"github.com/supergiant/robot/pkg/api/operations"
-	"github.com/supergiant/robot/pkg/config"
-	"github.com/supergiant/robot/pkg/logger"
-	"github.com/supergiant/robot/pkg/models"
-	"github.com/supergiant/robot/pkg/plugin"
-	"github.com/supergiant/robot/pkg/plugin/proto"
-	"github.com/supergiant/robot/pkg/scheduler"
-	"github.com/supergiant/robot/pkg/storage"
-	"github.com/supergiant/robot/pkg/storage/etcd"
+	"github.com/supergiant/analyze"
+	"github.com/supergiant/analyze/builtin/plugins/requestslimitscheck"
+	"github.com/supergiant/analyze/builtin/plugins/sunsetting"
+	"github.com/supergiant/analyze/pkg/api"
+	"github.com/supergiant/analyze/pkg/api/handlers"
+	"github.com/supergiant/analyze/pkg/api/operations"
+	"github.com/supergiant/analyze/pkg/config"
+	"github.com/supergiant/analyze/pkg/logger"
+	"github.com/supergiant/analyze/pkg/models"
+	"github.com/supergiant/analyze/pkg/plugin"
+	"github.com/supergiant/analyze/pkg/plugin/proto"
+	"github.com/supergiant/analyze/pkg/scheduler"
+	"github.com/supergiant/analyze/pkg/storage"
+	"github.com/supergiant/analyze/pkg/storage/etcd"
 )
 
 func main() {
@@ -55,7 +55,7 @@ func runCommand(cmd *cobra.Command, _ []string) error {
 		return errors.Wrap(err, "unable to get config flag value")
 	}
 
-	cfg := &robot.Config{}
+	cfg := &analyze.Config{}
 
 	// configFileReadError is not critical due to possibility that configuration is done by environment variables
 	configFileReadError := config.ReadFromFiles(cfg, configFilePaths)

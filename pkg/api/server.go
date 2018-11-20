@@ -25,7 +25,7 @@ import (
 	flags "github.com/jessevdk/go-flags"
 	"golang.org/x/net/netutil"
 
-	"github.com/supergiant/robot/pkg/api/operations"
+	"github.com/supergiant/analyze/pkg/api/operations"
 )
 
 const (

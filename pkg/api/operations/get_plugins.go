@@ -14,7 +14,7 @@ import (
 	strfmt "github.com/go-openapi/strfmt"
 	swag "github.com/go-openapi/swag"
 
-	models "github.com/supergiant/robot/pkg/models"
+	models "github.com/supergiant/analyze/pkg/models"
 )
 
 // GetPluginsHandlerFunc turns a function with the right signature into a get plugins handler

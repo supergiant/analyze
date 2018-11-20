@@ -14,7 +14,7 @@ define LINT
 endef
 
 define GOIMPORTS
-	goimports -v -w -local github.com/supergiant/robot ${CURRENT_DIR}
+	goimports -v -w -local github.com/supergiant/analyze ${CURRENT_DIR}
 endef
 
 define TOOLS
@@ -46,8 +46,8 @@ lint: tools
 validate: tools
 	swagger validate ./swagger/api-spec.yml
 
-.PHONY: gen
-gen: validate
+.PHONY: gen-swagger
+gen-swagger: validate
 	swagger generate model \
     		--target=./pkg \
     		--spec=./swagger/api-spec.yml
@@ -58,8 +58,7 @@ gen: validate
 		--exclude-main \
 		--name=analyze
 		--existing-models=./pkg/models
-	cp ./swagger/api-spec.yml ./swagger/ui/api-spec.yml
-	statik -f -src=${CURRENT_DIR}/swagger/ui
+	cp ./swagger/api-spec.yml ./asset/swagger/api-spec.yml
 
 .PHONY: test
 test:
@@ -92,6 +91,10 @@ fmt: gofmt goimports
 
 #all dependencies are "go get"-able for general dev environment usability.
 # To compile all protobuf files in this repository, run "make protobuf"
-.PHONY: protobuf
-protobuf:
+.PHONY: gen-protobuf
+gen-protobuf:
 	docker run --rm -v ${CURRENT_DIR}/pkg/plugin:/defs namely/protoc-all:1.16_0 -i proto -l go -d /defs -o .
+
+.PHONY: gen-assets
+gen-assets:
+	cd ${CURRENT_DIR}/asset && go generate

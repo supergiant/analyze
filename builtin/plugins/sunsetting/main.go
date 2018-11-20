@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/supergiant/robot/builtin/plugins/sunsetting/cloudprovider"
+	"github.com/supergiant/analyze/builtin/plugins/sunsetting/cloudprovider"
 
 	"github.com/golang/protobuf/ptypes/any"
 	"github.com/golang/protobuf/ptypes/empty"
@@ -13,9 +13,9 @@ import (
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
 
-	"github.com/supergiant/robot/builtin/plugins/sunsetting/cloudprovider/aws"
-	"github.com/supergiant/robot/builtin/plugins/sunsetting/kube"
-	"github.com/supergiant/robot/pkg/plugin/proto"
+	"github.com/supergiant/analyze/builtin/plugins/sunsetting/cloudprovider/aws"
+	"github.com/supergiant/analyze/builtin/plugins/sunsetting/kube"
+	"github.com/supergiant/analyze/pkg/plugin/proto"
 )
 
 type plugin struct {

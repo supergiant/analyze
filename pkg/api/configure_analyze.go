@@ -4,20 +4,20 @@ package api
 
 import (
 	"crypto/tls"
+
 	"net/http"
 	"strings"
 
 	"github.com/dre1080/recover"
-	"github.com/rakyll/statik/fs"
 	"github.com/sirupsen/logrus"
 
-	"github.com/supergiant/robot/pkg/api/operations"
+	"github.com/supergiant/analyze/asset"
+	"github.com/supergiant/analyze/pkg/api/operations"
 
 	"github.com/go-openapi/errors"
 	"github.com/go-openapi/runtime"
 	"github.com/rs/cors"
 
-	_ "github.com/supergiant/robot/statik"
 )
 
 //go:generate swagger generate server --target ../pkg --name Analyze --spec ../swagger/api-spec.yml --server-package api --exclude-main
@@ -87,11 +87,7 @@ func setupGlobalMiddleware(handler http.Handler) http.Handler {
 }
 
 func swaggerMiddleware(handler http.Handler) http.Handler {
-	statikFS, err := fs.New()
-	if err != nil {
-		panic(err)
-	}
-	staticServer := http.FileServer(statikFS)
+	var staticServer = http.FileServer(asset.SwaggerAssets)
 
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 

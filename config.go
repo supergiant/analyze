@@ -1,12 +1,12 @@
-package robot
+package analyze
 
 import (
 	"github.com/coreos/etcd/clientv3"
 	"github.com/pkg/errors"
 
-	"github.com/supergiant/robot/pkg/api"
-	"github.com/supergiant/robot/pkg/logger"
-	"github.com/supergiant/robot/pkg/plugin"
+	"github.com/supergiant/analyze/pkg/api"
+	"github.com/supergiant/analyze/pkg/logger"
+	"github.com/supergiant/analyze/pkg/plugin"
 )
 
 // Config  struct represents configuration of robot service

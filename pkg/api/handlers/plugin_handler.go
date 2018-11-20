@@ -8,9 +8,9 @@ import (
 	"github.com/go-openapi/runtime/middleware"
 	"github.com/sirupsen/logrus"
 
-	"github.com/supergiant/robot/pkg/api/operations"
-	"github.com/supergiant/robot/pkg/models"
-	"github.com/supergiant/robot/pkg/storage"
+	"github.com/supergiant/analyze/pkg/api/operations"
+	"github.com/supergiant/analyze/pkg/models"
+	"github.com/supergiant/analyze/pkg/storage"
 )
 
 type pluginsHandler struct {

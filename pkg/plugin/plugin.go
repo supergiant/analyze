@@ -9,7 +9,7 @@ import (
 
 	"github.com/pkg/errors"
 
-	"github.com/supergiant/robot/pkg/plugin/proto"
+	"github.com/supergiant/analyze/pkg/plugin/proto"
 )
 
 type Config struct {
