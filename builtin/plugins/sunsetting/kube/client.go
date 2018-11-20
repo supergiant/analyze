@@ -85,6 +85,12 @@ func getNodeResourceRequirements(node corev1api.Node, pods []corev1api.Pod) *Nod
 
 // TODO: add checks and errors
 // for aws ProviderID has format - aws:///us-west-1b/i-0c912bfd4048b97e5
+// TODO: implement other possible formats of ProviderID
+// kubernetesInstanceID represents the id for an instance in the kubernetes API;
+// the following form
+//  * aws:///<zone>/<awsInstanceId>
+//  * aws:////<awsInstanceId>
+//  * <awsInstanceId>
 func parseProviderID(providerID string) (string, string) {
 	var s = strings.TrimPrefix(providerID, "aws:///")
 	ss := strings.Split(s, "/")

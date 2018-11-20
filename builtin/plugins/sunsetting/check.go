@@ -5,7 +5,6 @@ import "sort"
 // CheckAllPodsAtATime makes simple check that it is possible to move all pods of a node to another node.
 func CheckAllPodsAtATime(unsortedEntries []*InstanceEntry) []InstanceEntry {
 	var entriesByWastedRam = NewSortedEntriesByWastedRAM(unsortedEntries)
-	//var entriesByWastedRam = NewSortedEntriesByWastedRAM(unsortedEntries)
 	var res = make([]InstanceEntry, 0)
 
 	for _, maxWastedRamEntry := range entriesByWastedRam {
