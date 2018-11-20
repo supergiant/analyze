@@ -82,12 +82,13 @@ func setupGlobalMiddleware(handler http.Handler) http.Handler {
 	}).Handler(handlerWithRecovery)
 
 	handlerWithSwagger := swaggerMiddleware(corsHandler)
+	handlerWithUi := uiMiddleware(handlerWithSwagger)
 
-	return handlerWithSwagger
+	return handlerWithUi
 }
 
 func swaggerMiddleware(handler http.Handler) http.Handler {
-	var staticServer = http.FileServer(asset.SwaggerAssets)
+	var staticServer = http.FileServer(asset.Assets)
 
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 
@@ -97,8 +98,24 @@ func swaggerMiddleware(handler http.Handler) http.Handler {
 			return
 		}
 		// Serving ./swagger-ui/
-		if strings.Index(r.URL.Path, "/api/v1/swagger-ui/") == 0 {
-			http.StripPrefix("/api/v1/swagger-ui/", staticServer).ServeHTTP(w, r)
+		if strings.HasPrefix(r.URL.Path, "/api/v1/swagger-ui/") {
+			url := strings.TrimPrefix(r.URL.Path, "/api/v1/swagger-ui/")
+			r.URL.Path = "/swagger/" + url
+			staticServer.ServeHTTP(w, r)
+			return
+		}
+		handler.ServeHTTP(w, r)
+	})
+}
+
+func uiMiddleware(handler http.Handler) http.Handler {
+	var staticServer = http.FileServer(asset.Assets)
+
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+
+		if  !strings.HasPrefix(r.URL.Path, "/api/v1") {
+			r.URL.Path = "/ui" + r.URL.Path
+			staticServer.ServeHTTP(w, r)
 			return
 		}
 		handler.ServeHTTP(w, r)

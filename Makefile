@@ -31,6 +31,8 @@ define TOOLS
         	@echo "Installing swagger... into ${GOPATH}/bin"; \
         	go get -u github.com/go-swagger/go-swagger/cmd/swagger ; \
         fi
+
+        docker build -t supergiant/frontend_builder:latest -f ./ui/Dockerfile ./ui > /dev/null;
 endef
 
 
@@ -97,4 +99,8 @@ gen-protobuf:
 
 .PHONY: gen-assets
 gen-assets:
+	docker run --rm -it --name supergiant_frontend_builder \
+		--mount type=bind,src=${CURRENT_DIR},dst=/tmp \
+		-w /usr/src/app node:10-alpine \
+		sh -c "cp -a /tmp/ui/. /usr/src/app && ls -la && npm i && npm run build && cp -a /usr/src/app/dist/. /tmp/asset/ui"
 	cd ${CURRENT_DIR}/asset && go generate

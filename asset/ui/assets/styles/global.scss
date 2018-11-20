@@ -1,0 +1,35 @@
+@import "./colors";
+
+body {
+  background: url('/assets/img/sg2-bg-grad.jpg') center top / cover no-repeat;
+}
+
+h1 {
+  color: $sg-pink;
+}
+
+.transparent {
+  &.mat-card {
+    background: $black-transparent;
+    border: 1px solid rgba(white, .2);
+
+    .mat-card-title {
+      color: $sg-pink;
+    }
+  }
+}
+
+::ng-deep {
+  .custom {
+  }
+
+  .mat-card {
+    .mat-tab-group.mat-primary .mat-ink-bar, .mat-tab-nav-bar.mat-primary .mat-ink-bar {
+      display: none;
+      background-color: transparent!important;
+      border-bottom: 2px dotted $white;
+    }
+  }
+
+}
+

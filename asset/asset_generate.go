@@ -3,17 +3,22 @@
 package main
 
 import (
+	"github.com/shurcooL/httpfs/union"
 	"github.com/shurcooL/vfsgen"
 	"log"
 	"net/http"
 )
 
 func main() {
-	var fs http.FileSystem = http.Dir("./swagger")
 
-	err := vfsgen.Generate(fs, vfsgen.Options{
+	var fileSystem http.FileSystem = union.New(map[string]http.FileSystem{
+		"/ui": http.Dir("./ui"),
+		"/swagger":   http.Dir("./swagger"),
+	})
+
+	err := vfsgen.Generate(fileSystem, vfsgen.Options{
 		PackageName:     "asset",
-		VariableName:    "SwaggerAssets",
+		VariableName:    "Assets",
 	})
 	if err != nil {
 		log.Fatalln(err)
