@@ -1,4 +1,4 @@
-![sg_analyze](https://user-images.githubusercontent.com/2936828/48134724-83961d80-e2a3-11e8-89ca-18b11a548c7f.png)
+![sg_analyze_light](https://user-images.githubusercontent.com/2936828/48772107-0b305300-eccc-11e8-8c72-4bcbd737226b.png)
 # Analyze 
 
 #deployment using HELM
