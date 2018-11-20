@@ -10,6 +10,10 @@ const routes: Routes = [
   {
     path: 'checks',
     loadChildren: './checks/checks.module#ChecksModule'
+  },
+  {
+    path: '**',
+    redirectTo: 'checks'
   }
 ];
 
