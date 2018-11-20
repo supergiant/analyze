@@ -1,17 +1,19 @@
 import { NgModule, Optional, SkipSelf }      from '@angular/core';
 import { CommonModule }                      from '@angular/common';
 import { HeaderComponent }                   from './header/header.component';
-import { UserMenuComponent }                 from "src/app/core/header/user-menu/user-menu.component";
+import { UserMenuComponent }                 from "./header/user-menu/user-menu.component";
 import { MatDialogModule, MatToolbarModule } from "@angular/material";
 import { FooterComponent }                   from './footer/footer.component';
 import { RouterModule }                      from "@angular/router";
+import { MenuModalComponent }                from "src/app/core/header/user-menu/menu-modal/menu-modal.component";
 
 @NgModule({
   declarations: [
     //  nav component etc
     UserMenuComponent,
     HeaderComponent,
-    FooterComponent
+    FooterComponent,
+    MenuModalComponent,
   ],
   imports: [
     CommonModule,
@@ -22,7 +24,10 @@ import { RouterModule }                      from "@angular/router";
   exports: [
     HeaderComponent,
     FooterComponent,
-  ]
+  ],
+  entryComponents: [
+    MenuModalComponent,
+  ],
 })
 export class CoreModule {
   constructor(@Optional() @SkipSelf() parentModule: CoreModule) {

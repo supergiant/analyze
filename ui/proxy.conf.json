@@ -1,0 +1,6 @@
+{
+  "/api": {
+    "target": "http://ec2-54-241-150-199.us-west-1.compute.amazonaws.com:30759",
+    "secure": false
+  }
+}
