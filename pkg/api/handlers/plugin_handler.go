@@ -41,9 +41,7 @@ func (h *pluginsHandler) Handle(params operations.GetPluginsParams) middleware.R
 		return r
 	}
 
-	result := &operations.GetPluginsOKBody{
-		InstalledPlugins: []*models.Plugin{},
-	}
+	result := []*models.Plugin{}
 
 	for _, rawPlugin := range pluginRaw {
 		p := &models.Plugin{}
@@ -57,7 +55,7 @@ func (h *pluginsHandler) Handle(params operations.GetPluginsParams) middleware.R
 			}
 			return r
 		}
-		result.InstalledPlugins = append(result.InstalledPlugins, p)
+		result = append(result, p)
 	}
 	h.log.Debugf("request processing finished at: %v, request: %+v", time.Now(), params)
 

@@ -31,8 +31,6 @@ define TOOLS
         	@echo "Installing swagger... into ${GOPATH}/bin"; \
         	go get -u github.com/go-swagger/go-swagger/cmd/swagger ; \
         fi
-
-        docker build -t supergiant/frontend_builder:latest -f ./ui/Dockerfile ./ui > /dev/null;
 endef
 
 

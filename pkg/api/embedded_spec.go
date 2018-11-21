@@ -69,15 +69,10 @@ func init() {
           "200": {
             "description": "no error",
             "schema": {
-              "type": "object",
-              "properties": {
-                "installedPlugins": {
-                  "description": "installed plugins",
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/definitions/plugin"
-                  }
-                }
+              "description": "installed plugins",
+              "type": "array",
+              "items": {
+                "$ref": "#/definitions/plugin"
               }
             }
           },
@@ -253,15 +248,10 @@ func init() {
           "200": {
             "description": "no error",
             "schema": {
-              "type": "object",
-              "properties": {
-                "installedPlugins": {
-                  "description": "installed plugins",
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/definitions/plugin"
-                  }
-                }
+              "description": "installed plugins",
+              "type": "array",
+              "items": {
+                "$ref": "#/definitions/plugin"
               }
             }
           },

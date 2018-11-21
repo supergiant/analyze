@@ -22,10 +22,10 @@ swagger:response getPluginsOK
 */
 type GetPluginsOK struct {
 
-	/*
+	/*installed plugins
 	  In: Body
 	*/
-	Payload *GetPluginsOKBody `json:"body,omitempty"`
+	Payload []*models.Plugin `json:"body,omitempty"`
 }
 
 // NewGetPluginsOK creates GetPluginsOK with default headers values
@@ -35,13 +35,13 @@ func NewGetPluginsOK() *GetPluginsOK {
 }
 
 // WithPayload adds the payload to the get plugins o k response
-func (o *GetPluginsOK) WithPayload(payload *GetPluginsOKBody) *GetPluginsOK {
+func (o *GetPluginsOK) WithPayload(payload []*models.Plugin) *GetPluginsOK {
 	o.Payload = payload
 	return o
 }
 
 // SetPayload sets the payload to the get plugins o k response
-func (o *GetPluginsOK) SetPayload(payload *GetPluginsOKBody) {
+func (o *GetPluginsOK) SetPayload(payload []*models.Plugin) {
 	o.Payload = payload
 }
 
@@ -49,12 +49,15 @@ func (o *GetPluginsOK) SetPayload(payload *GetPluginsOKBody) {
 func (o *GetPluginsOK) WriteResponse(rw http.ResponseWriter, producer runtime.Producer) {
 
 	rw.WriteHeader(200)
-	if o.Payload != nil {
-		payload := o.Payload
-		if err := producer.Produce(rw, payload); err != nil {
-			panic(err) // let the recovery middleware deal with this
-		}
+	payload := o.Payload
+	if payload == nil {
+		payload = make([]*models.Plugin, 0, 50)
 	}
+
+	if err := producer.Produce(rw, payload); err != nil {
+		panic(err) // let the recovery middleware deal with this
+	}
+
 }
 
 /*GetPluginsDefault error
