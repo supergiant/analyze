@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/supergiant/robot/pkg/config"
+	"github.com/supergiant/analyze/pkg/config"
 
 	"github.com/spf13/viper"
 )

@@ -3,9 +3,9 @@ package sunsetting
 import (
 	"sort"
 
-	"github.com/supergiant/robot/builtin/plugins/sunsetting/cloudprovider"
+	"github.com/supergiant/analyze/builtin/plugins/sunsetting/cloudprovider"
 
-	"github.com/supergiant/robot/builtin/plugins/sunsetting/kube"
+	"github.com/supergiant/analyze/builtin/plugins/sunsetting/kube"
 )
 
 // InstanceEntry struct represents Kelly's "instances to sunset" table entry,

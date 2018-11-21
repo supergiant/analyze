@@ -96,13 +96,10 @@ paths:
         200:
           description: no error
           schema:
-            type: "object"
-            properties:
-              installedPlugins:
-                type: "array"
-                description: "installed plugins"
-                items:
-                  $ref: "#/definitions/plugin"
+            type: "array"
+            description: "installed plugins"
+            items:
+              $ref: "#/definitions/plugin"
         default:
           description: error
           schema:

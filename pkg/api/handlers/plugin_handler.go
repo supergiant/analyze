@@ -8,9 +8,9 @@ import (
 	"github.com/go-openapi/runtime/middleware"
 	"github.com/sirupsen/logrus"
 
-	"github.com/supergiant/robot/pkg/api/operations"
-	"github.com/supergiant/robot/pkg/models"
-	"github.com/supergiant/robot/pkg/storage"
+	"github.com/supergiant/analyze/pkg/api/operations"
+	"github.com/supergiant/analyze/pkg/models"
+	"github.com/supergiant/analyze/pkg/storage"
 )
 
 type pluginsHandler struct {
@@ -41,9 +41,7 @@ func (h *pluginsHandler) Handle(params operations.GetPluginsParams) middleware.R
 		return r
 	}
 
-	result := &operations.GetPluginsOKBody{
-		InstalledPlugins: []*models.Plugin{},
-	}
+	result := []*models.Plugin{}
 
 	for _, rawPlugin := range pluginRaw {
 		p := &models.Plugin{}
@@ -57,7 +55,7 @@ func (h *pluginsHandler) Handle(params operations.GetPluginsParams) middleware.R
 			}
 			return r
 		}
-		result.InstalledPlugins = append(result.InstalledPlugins, p)
+		result = append(result, p)
 	}
 	h.log.Debugf("request processing finished at: %v, request: %+v", time.Now(), params)
 

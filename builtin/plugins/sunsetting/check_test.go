@@ -3,8 +3,8 @@ package sunsetting
 import (
 	"testing"
 
-	"github.com/supergiant/robot/builtin/plugins/sunsetting/cloudprovider"
-	"github.com/supergiant/robot/builtin/plugins/sunsetting/kube"
+	"github.com/supergiant/analyze/builtin/plugins/sunsetting/cloudprovider"
+	"github.com/supergiant/analyze/builtin/plugins/sunsetting/kube"
 )
 
 var unsortedEntries = func() []*InstanceEntry {

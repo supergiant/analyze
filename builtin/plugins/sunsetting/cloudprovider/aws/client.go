@@ -10,8 +10,8 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/pricing"
 	"github.com/pkg/errors"
 
-	"github.com/supergiant/robot/builtin/plugins/sunsetting/cloudprovider"
-	"github.com/supergiant/robot/pkg/plugin/proto"
+	"github.com/supergiant/analyze/builtin/plugins/sunsetting/cloudprovider"
+	"github.com/supergiant/analyze/pkg/plugin/proto"
 )
 
 var awsPartitions = map[string]string{

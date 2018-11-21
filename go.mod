@@ -1,4 +1,4 @@
-module github.com/supergiant/robot
+module github.com/supergiant/analyze
 
 require (
 	github.com/BurntSushi/toml v0.3.1 // indirect
@@ -60,8 +60,9 @@ require (
 	github.com/prometheus/client_model v0.0.0-20180712105110-5c3871d89910 // indirect
 	github.com/prometheus/common v0.0.0-20181109100915-0b1957f9d949 // indirect
 	github.com/prometheus/procfs v0.0.0-20181005140218-185b4288413d // indirect
-	github.com/rakyll/statik v0.1.5
 	github.com/rs/cors v1.6.0
+	github.com/shurcooL/httpfs v0.0.0-20171119174359-809beceb2371 // indirect
+	github.com/shurcooL/vfsgen v0.0.0-20181020040650-a97a25d856ca
 	github.com/sirupsen/logrus v1.0.6
 	github.com/smartystreets/assertions v0.0.0-20180927180507-b2de0cb4f26d // indirect
 	github.com/smartystreets/goconvey v0.0.0-20181108003508-044398e4856c // indirect

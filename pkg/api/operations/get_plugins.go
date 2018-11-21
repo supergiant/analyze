@@ -7,14 +7,8 @@ package operations
 
 import (
 	"net/http"
-	"strconv"
 
-	errors "github.com/go-openapi/errors"
 	middleware "github.com/go-openapi/runtime/middleware"
-	strfmt "github.com/go-openapi/strfmt"
-	swag "github.com/go-openapi/swag"
-
-	models "github.com/supergiant/robot/pkg/models"
 )
 
 // GetPluginsHandlerFunc turns a function with the right signature into a get plugins handler
@@ -61,69 +55,4 @@ func (o *GetPlugins) ServeHTTP(rw http.ResponseWriter, r *http.Request) {
 
 	o.Context.Respond(rw, r, route.Produces, route, res)
 
-}
-
-// GetPluginsOKBody get plugins o k body
-// swagger:model GetPluginsOKBody
-type GetPluginsOKBody struct {
-
-	// installed plugins
-	InstalledPlugins []*models.Plugin `json:"installedPlugins"`
-}
-
-// Validate validates this get plugins o k body
-func (o *GetPluginsOKBody) Validate(formats strfmt.Registry) error {
-	var res []error
-
-	if err := o.validateInstalledPlugins(formats); err != nil {
-		res = append(res, err)
-	}
-
-	if len(res) > 0 {
-		return errors.CompositeValidationError(res...)
-	}
-	return nil
-}
-
-func (o *GetPluginsOKBody) validateInstalledPlugins(formats strfmt.Registry) error {
-
-	if swag.IsZero(o.InstalledPlugins) { // not required
-		return nil
-	}
-
-	for i := 0; i < len(o.InstalledPlugins); i++ {
-		if swag.IsZero(o.InstalledPlugins[i]) { // not required
-			continue
-		}
-
-		if o.InstalledPlugins[i] != nil {
-			if err := o.InstalledPlugins[i].Validate(formats); err != nil {
-				if ve, ok := err.(*errors.Validation); ok {
-					return ve.ValidateName("getPluginsOK" + "." + "installedPlugins" + "." + strconv.Itoa(i))
-				}
-				return err
-			}
-		}
-
-	}
-
-	return nil
-}
-
-// MarshalBinary interface implementation
-func (o *GetPluginsOKBody) MarshalBinary() ([]byte, error) {
-	if o == nil {
-		return nil, nil
-	}
-	return swag.WriteJSON(o)
-}
-
-// UnmarshalBinary interface implementation
-func (o *GetPluginsOKBody) UnmarshalBinary(b []byte) error {
-	var res GetPluginsOKBody
-	if err := swag.ReadJSON(b, &res); err != nil {
-		return err
-	}
-	*o = res
-	return nil
 }

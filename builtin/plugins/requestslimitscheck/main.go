@@ -14,7 +14,7 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 
-	"github.com/supergiant/robot/pkg/plugin/proto"
+	"github.com/supergiant/analyze/pkg/plugin/proto"
 )
 
 type resourceRequirementsPlugin struct {

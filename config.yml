@@ -16,4 +16,4 @@ plugin:
 
 etcd:
   endpoints:
-    - localhost:2379
+    - localhost:2401

@@ -6,7 +6,7 @@ import (
 	"github.com/coreos/etcd/clientv3"
 	"github.com/pkg/errors"
 
-	"github.com/supergiant/robot/pkg/storage"
+	"github.com/supergiant/analyze/pkg/storage"
 )
 
 type ETCDStorage struct {

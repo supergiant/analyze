@@ -1,0 +1,124 @@
+swagger: "2.0"
+basePath: "/api/v1"
+info:
+  version: v0.0.1
+  title: Analyze service API
+consumes:
+- application/json
+produces:
+- application/json
+definitions:
+  error:
+    type: object
+    required:
+    - message
+    properties:
+      code:
+        type: integer
+        format: int64
+      message:
+        type: string
+  plugin:
+    type: "object"
+    description: "plugin represents the installed recommendation plugin"
+    properties:
+      id:
+        description: |
+          unique ID of installed plugin
+          basically it is slugged URI of plugin repository name e. g. supergiant-request-limits-check
+        type: "string"
+      version:
+        description: "plugin version, major version shall be equal to robots version"
+        type: "string"
+      name:
+        description: "name is the name of the plugin."
+        type: "string"
+      description:
+        description: "detailed plugin description"
+        type: "string"
+      status:
+        description: "plugin status"
+        type: "string"
+      installedAt:
+        type: "string"
+        format: "date-time"
+        description: "date/Time the plugin was installed"
+  checkResult:
+    type: "object"
+    description: "CheckResult represents the single result of Check function invocation of specific plugin."
+    properties:
+      id:
+        description: "unique UUID of Check function invocation of specific plugin"
+        type: "string"
+      name:
+        description: "check name"
+        type: "string"
+      completedAt:
+        type: "string"
+        format: "date-time"
+        description: "date/Time of check execution"
+      executionStatus:
+        description: "shows check execution errors"
+        type: "string"
+      checkStatus:
+        description: "shows check status"
+        type: "string"
+        enum: [RED, YELLOW, GREEN]
+      description:
+        description: "detailed check result description"
+        type: "string"
+      possibleActions:
+        description: "list of possible actions to fix caveats check was found"
+        type: "array"
+        items:
+          $ref: "#/definitions/pluginAction"
+  pluginAction:
+    type: "object"
+    description: "CheckResult represents the single result of Check function invocation of specific plugin."
+    properties:
+      id:
+        description: "unique UUID of plugin action"
+        type: "string"
+      name:
+        description: "name of plugin action"
+        type: "string"
+      description:
+        description: "detailed action description"
+        type: "string"
+paths:
+  /plugin:
+    get:
+      summary: "Returns list of the installed recommendation plugins"
+      produces:
+      - application/json
+      operationId: getPlugins
+      responses:
+        200:
+          description: no error
+          schema:
+            type: "array"
+            description: "installed plugins"
+            items:
+              $ref: "#/definitions/plugin"
+        default:
+          description: error
+          schema:
+            $ref: "#/definitions/error"
+  /check:
+    get:
+      summary: "Returns list of check results produced by installed plugins"
+      produces:
+      - application/json
+      operationId: getCheckResults
+      responses:
+        200:
+          description: no error
+          schema:
+            type: "array"
+            description: "existing checks"
+            items:
+              $ref: "#/definitions/checkResult"
+        default:
+          description: error
+          schema:
+            $ref: "#/definitions/error"

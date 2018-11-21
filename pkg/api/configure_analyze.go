@@ -4,20 +4,19 @@ package api
 
 import (
 	"crypto/tls"
+
 	"net/http"
 	"strings"
 
 	"github.com/dre1080/recover"
-	"github.com/rakyll/statik/fs"
 	"github.com/sirupsen/logrus"
 
-	"github.com/supergiant/robot/pkg/api/operations"
+	"github.com/supergiant/analyze/asset"
+	"github.com/supergiant/analyze/pkg/api/operations"
 
 	"github.com/go-openapi/errors"
 	"github.com/go-openapi/runtime"
 	"github.com/rs/cors"
-
-	_ "github.com/supergiant/robot/statik"
 )
 
 //go:generate swagger generate server --target ../pkg --name Analyze --spec ../swagger/api-spec.yml --server-package api --exclude-main
@@ -82,16 +81,13 @@ func setupGlobalMiddleware(handler http.Handler) http.Handler {
 	}).Handler(handlerWithRecovery)
 
 	handlerWithSwagger := swaggerMiddleware(corsHandler)
+	handlerWithUi := uiMiddleware(handlerWithSwagger)
 
-	return handlerWithSwagger
+	return handlerWithUi
 }
 
 func swaggerMiddleware(handler http.Handler) http.Handler {
-	statikFS, err := fs.New()
-	if err != nil {
-		panic(err)
-	}
-	staticServer := http.FileServer(statikFS)
+	var staticServer = http.FileServer(asset.Assets)
 
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 
@@ -101,8 +97,24 @@ func swaggerMiddleware(handler http.Handler) http.Handler {
 			return
 		}
 		// Serving ./swagger-ui/
-		if strings.Index(r.URL.Path, "/api/v1/swagger-ui/") == 0 {
-			http.StripPrefix("/api/v1/swagger-ui/", staticServer).ServeHTTP(w, r)
+		if strings.HasPrefix(r.URL.Path, "/api/v1/swagger-ui/") {
+			url := strings.TrimPrefix(r.URL.Path, "/api/v1/swagger-ui/")
+			r.URL.Path = "/swagger/" + url
+			staticServer.ServeHTTP(w, r)
+			return
+		}
+		handler.ServeHTTP(w, r)
+	})
+}
+
+func uiMiddleware(handler http.Handler) http.Handler {
+	var staticServer = http.FileServer(asset.Assets)
+
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+
+		if !strings.HasPrefix(r.URL.Path, "/api/v1") {
+			r.URL.Path = "/ui" + r.URL.Path
+			staticServer.ServeHTTP(w, r)
 			return
 		}
 		handler.ServeHTTP(w, r)

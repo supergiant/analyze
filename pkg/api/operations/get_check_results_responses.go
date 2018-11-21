@@ -10,7 +10,7 @@ import (
 
 	"github.com/go-openapi/runtime"
 
-	models "github.com/supergiant/robot/pkg/models"
+	models "github.com/supergiant/analyze/pkg/models"
 )
 
 // GetCheckResultsOKCode is the HTTP code returned for type GetCheckResultsOK
