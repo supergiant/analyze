@@ -38,6 +38,7 @@ elif [[ "$TRAVIS_BRANCH" == *release-* ]]; then
 	echo "unstable branch"
 	export TAG="${TAG}-unstable"
 	echo "Tag Name: ${TAG}"
+	ls -la
 	# run linters
 	./run_linters.sh
 	check_status
