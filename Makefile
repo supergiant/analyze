@@ -20,15 +20,15 @@ endef
 define TOOLS
 		if [ ! -x "`which revive 2>/dev/null`" ]; \
         then \
-        	@echo "revive linter not found."; \
-        	@echo "Installing linter... into ${GOPATH}/bin"; \
+        	echo "revive linter not found."; \
+        	echo "Installing linter... into ${GOPATH}/bin"; \
         	GO111MODULE=off go get -u github.com/mgechev/revive ; \
         fi
 
         if [ ! -x "`which swagger 2>/dev/null`" ]; \
         then \
-        	@echo "swagger not found."; \
-        	@echo "Installing swagger... into ${GOPATH}/bin"; \
+        	echo "swagger not found."; \
+        	echo "Installing swagger... into ${GOPATH}/bin"; \
         	GO111MODULE=off go get -u github.com/go-swagger/go-swagger/cmd/swagger ; \
         fi
 endef
