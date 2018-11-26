@@ -30,9 +30,6 @@ if [[ "$TRAVIS_TAG" =~ ^v[0-9]. ]]; then
 	# Push to Dockerhub
 	./docker_push.sh
 	check_status
-	# Push to releases page
-	./push_release.sh
-	check_status
 # on an unstable branch, tests are run and the docker container is built and pushed.
 elif [[ "$TRAVIS_BRANCH" == *release-* ]]; then
 	echo "unstable branch"

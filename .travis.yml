@@ -21,7 +21,6 @@ go_import_path: github.com/"$TRAVIS_REPO_SLUG"
 
 install:
 - make tools
-- go get github.com/tcnksm/ghr
 
 script:
 - source travis_build.sh
