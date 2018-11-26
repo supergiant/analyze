@@ -3,8 +3,8 @@ SHELL := /bin/sh
 MAKEFILE_PATH := $(abspath $(lastword $(MAKEFILE_LIST)))
 CURRENT_DIR := $(patsubst %/,%,$(dir $(MAKEFILE_PATH)))
 
-DOCKER_IMAGE_NAME := supergiant/analyze
-DOCKER_IMAGE_TAG := $(shell git describe --tags --always | tr -d v || echo 'latest')
+DOCKER_IMAGE_NAME := $(if ${TRAVIS_REPO_SLUG},${TRAVIS_REPO_SLUG},supergiant/analyze)
+DOCKER_IMAGE_TAG := $(if ${TAG},${TAG},$(shell git describe --tags --always | tr -d v || echo 'latest'))
 
 
 define LINT
