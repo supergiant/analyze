@@ -1,5 +1,5 @@
 #!/bin/bash
-set -e
+set -ex
 
 echo "Compressing assests"
 tar -czpf /tmp/assest.gz "${TRAVIS_HOME}"/gopath/src/github.com/"${TRAVIS_REPO_SLUG}"/
