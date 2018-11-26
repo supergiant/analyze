@@ -1,5 +1,5 @@
 #!/bin/bash
-set -e
+set -ex
 export TAG=${TRAVIS_BRANCH:-unstable}
 
 # checks for success of the previous task
