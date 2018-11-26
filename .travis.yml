@@ -11,8 +11,6 @@ cache:
 env:
   global:
     - GO111MODULE: "on"
-    - secure: ""
-    - secure: ""
 
 language: go
 
