@@ -1,5 +1,5 @@
 #!/bin/bash
-set -ex
+set -e
 
 echo "$TRAVIS_REPO_SLUG":"$TAG"
 # build the docker container

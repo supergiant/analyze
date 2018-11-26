@@ -1,5 +1,5 @@
 #!/bin/bash
-set -ex
+set -e
 
 # log into docker
 echo "Log into docker"
