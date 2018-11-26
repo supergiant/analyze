@@ -22,14 +22,14 @@ define TOOLS
         then \
         	@echo "revive linter not found."; \
         	@echo "Installing linter... into ${GOPATH}/bin"; \
-        	go get -u github.com/mgechev/revive ; \
+        	GO111MODULE=off go get -u github.com/mgechev/revive ; \
         fi
 
         if [ ! -x "`which swagger 2>/dev/null`" ]; \
         then \
         	@echo "swagger not found."; \
         	@echo "Installing swagger... into ${GOPATH}/bin"; \
-        	go get -u github.com/go-swagger/go-swagger/cmd/swagger ; \
+        	GO111MODULE=off go get -u github.com/go-swagger/go-swagger/cmd/swagger ; \
         fi
 endef
 
