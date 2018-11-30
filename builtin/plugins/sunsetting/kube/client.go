@@ -3,8 +3,8 @@ package kube
 import (
 	"strings"
 
+	"github.com/pkg/errors"
 	"k8s.io/client-go/rest"
-
 	corev1api "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
@@ -51,7 +51,10 @@ func (c *Client) GetNodeResourceRequirements() (map[string]*NodeResourceRequirem
 			return nil, err
 		}
 
-		var nodeResourceRequirements = getNodeResourceRequirements(node, nonTerminatedPodsList.Items)
+		nodeResourceRequirements, err := getNodeResourceRequirements(node, nonTerminatedPodsList.Items)
+		if err != nil {
+			return nil , err
+		}
 
 		instanceEntries[nodeResourceRequirements.InstanceID] = nodeResourceRequirements
 	}
@@ -59,13 +62,17 @@ func (c *Client) GetNodeResourceRequirements() (map[string]*NodeResourceRequirem
 	return instanceEntries, nil
 }
 
-func getNodeResourceRequirements(node corev1api.Node, pods []corev1api.Pod) *NodeResourceRequirements {
+func getNodeResourceRequirements(node corev1api.Node, pods []corev1api.Pod) (*NodeResourceRequirements, error) {
 	var nodeResourceRequirements = &NodeResourceRequirements{
 		Name:                     node.Name,
 		PodsResourceRequirements: []*PodResourceRequirements{},
 	}
+	var err error
 
-	nodeResourceRequirements.Region, nodeResourceRequirements.InstanceID = parseProviderID(node.Spec.ProviderID)
+	nodeResourceRequirements.Region, nodeResourceRequirements.InstanceID, err = parseProviderID(node.Spec.ProviderID)
+	if err != nil {
+		return nil, err
+	}
 
 	// calculate worker node requests/limits
 	nodeResourceRequirements.PodsResourceRequirements = getPodsRequestsAndLimits(pods)
@@ -80,7 +87,7 @@ func getNodeResourceRequirements(node corev1api.Node, pods []corev1api.Pod) *Nod
 
 	nodeResourceRequirements.RefreshTotals()
 
-	return nodeResourceRequirements
+	return nodeResourceRequirements, nil
 }
 
 // TODO: add checks and errors
@@ -91,10 +98,13 @@ func getNodeResourceRequirements(node corev1api.Node, pods []corev1api.Pod) *Nod
 //  * aws:///<zone>/<awsInstanceId>
 //  * aws:////<awsInstanceId>
 //  * <awsInstanceId>
-func parseProviderID(providerID string) (string, string) {
+func parseProviderID(providerID string) (string, string, error) {
 	var s = strings.TrimPrefix(providerID, "aws:///")
 	ss := strings.Split(s, "/")
-	return ss[0], ss[1]
+	if len(ss) != 2 {
+		return "", "", errors.Errorf("Cant parse ProviderID: %s", providerID)
+	}
+	return ss[0], ss[1], nil
 }
 
 func getPodsRequestsAndLimits(podList []corev1api.Pod) []*PodResourceRequirements {
