@@ -3,6 +3,7 @@ kind: Service
 metadata:
   name: {{ include "analyze.fullname" . }}
   labels:
+    kubernetes.io/cluster-service: "true"
     app.kubernetes.io/name: {{ include "analyze.name" . }}
     helm.sh/chart: {{ include "analyze.chart" . }}
     app.kubernetes.io/instance: {{ .Release.Name }}
@@ -13,6 +14,7 @@ spec:
     - port: {{ .Values.service.externalPort }}
       targetPort: {{ .Values.service.internalPort }}
       protocol: TCP
+      name: http
   selector:
     app.kubernetes.io/name: {{ include "analyze.name" . }}
     app.kubernetes.io/instance: {{ .Release.Name }}
