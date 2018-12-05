@@ -4,6 +4,7 @@ MAKEFILE_PATH := $(abspath $(lastword $(MAKEFILE_LIST)))
 CURRENT_DIR := $(patsubst %/,%,$(dir $(MAKEFILE_PATH)))
 
 DOCKER_IMAGE_NAME := $(if ${TRAVIS_REPO_SLUG},${TRAVIS_REPO_SLUG},supergiant/analyze)
+NODEAGENT_DOCKER_IMAGE_NAME := $(if ${TRAVIS_REPO_SLUG},${TRAVIS_REPO_SLUG}-nodeagent,supergiant/analyze-nodeagent)
 DOCKER_IMAGE_TAG := $(if ${TAG},${TAG},$(shell git describe --tags --always | tr -d v || echo 'latest'))
 
 
@@ -77,9 +78,13 @@ build-image:
 	docker build -t $(DOCKER_IMAGE_NAME):$(DOCKER_IMAGE_TAG) .
 	docker tag $(DOCKER_IMAGE_NAME):$(DOCKER_IMAGE_TAG) $(DOCKER_IMAGE_NAME):latest
 
+	docker build -t $(NODEAGENT_DOCKER_IMAGE_NAME):$(DOCKER_IMAGE_TAG) -f cmd/analyze-nodeagent/Dockerfile .
+	docker tag $(NODEAGENT_DOCKER_IMAGE_NAME):$(DOCKER_IMAGE_TAG) $(NODEAGENT_DOCKER_IMAGE_NAME):latest
+
 .PHONY: push
 push:
 	docker push $(DOCKER_IMAGE_NAME):latest
+	docker push $(NODEAGENT_DOCKER_IMAGE_NAME):latest
 
 .PHONY: gofmt
 gofmt:
