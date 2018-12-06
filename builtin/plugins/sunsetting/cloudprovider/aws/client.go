@@ -49,12 +49,6 @@ func NewClient(clientConfig *proto.AwsConfig) (*Client, error) {
 		return nil, errors.Wrap(err, "unable to load AWS SDK config")
 	}
 
-	cfg.Credentials = aws.NewStaticCredentialsProvider(
-		clientConfig.GetAccessKeyId(),
-		clientConfig.GetSecretAccessKey(),
-		"",
-	)
-
 	// TODO bug in sdk?
 	cfg.Region = "us-east-1"
 	c.pricingService = pricing.New(cfg)

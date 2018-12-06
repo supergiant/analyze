@@ -5,24 +5,27 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/supergiant/analyze/builtin/plugins/sunsetting/cloudprovider"
-
 	"github.com/golang/protobuf/ptypes/any"
 	"github.com/golang/protobuf/ptypes/empty"
 	"github.com/pkg/errors"
+	"github.com/sirupsen/logrus"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
 
+	"github.com/supergiant/analyze/builtin/plugins/sunsetting/cloudprovider"
 	"github.com/supergiant/analyze/builtin/plugins/sunsetting/cloudprovider/aws"
 	"github.com/supergiant/analyze/builtin/plugins/sunsetting/kube"
+	"github.com/supergiant/analyze/builtin/plugins/sunsetting/nodeagent"
 	"github.com/supergiant/analyze/pkg/plugin/proto"
 )
 
 type plugin struct {
 	config                 *proto.PluginConfig
+	nodeAgentClient        *nodeagent.Client
 	awsClient              *aws.Client
 	kubeClient             *kube.Client
 	computeInstancesPrices map[string][]cloudprovider.ProductPrice
+	logger                 logrus.FieldLogger
 }
 
 var checkResult = &proto.CheckResult{
@@ -48,7 +51,9 @@ var checkResult = &proto.CheckResult{
 }
 
 func NewPlugin() proto.PluginClient {
-	return &plugin{}
+	return &plugin{
+		logger: logrus.New(),
+	}
 }
 
 func (u *plugin) Check(ctx context.Context, in *proto.CheckRequest, opts ...grpc.CallOption) (*proto.CheckResponse, error) {
@@ -58,11 +63,35 @@ func (u *plugin) Check(ctx context.Context, in *proto.CheckRequest, opts ...grpc
 		return nil, errors.Wrap(err, "unable to get nodeResourceRequirements")
 	}
 
-	computeInstances, err := u.awsClient.GetComputeInstances()
-	if err != nil {
-		fmt.Printf("failed to describe ec2 instances, %v", err)
-		return nil, errors.Wrap(err, "failed to describe ec2 instances")
+	var computeInstances = make(map[string]cloudprovider.ComputeInstance)
+	for instanceID, resourceRequirements := range nodeResourceRequirements {
+		var nodeAgentInstance = nodeagent.Instance{URI: resourceRequirements.IPAddress()}
+		fetchedInstanceID, err := u.nodeAgentClient.Get(nodeAgentInstance, "/aws/meta-data/instance-id")
+		if err != nil {
+			u.logger.Errorf("cant fetch ID for node %s", instanceID)
+			continue
+		}
+		if fetchedInstanceID != instanceID {
+			u.logger.Errorf(
+				"fetched ec2 instanceID: %s not equal to instanceID from providerID %s",
+				fetchedInstanceID,
+				instanceID,
+			)
+			continue
+		}
+
+		instanceType, err := u.nodeAgentClient.Get(nodeAgentInstance, "/aws/meta-data/instance-type")
+		computeInstances[instanceID] = cloudprovider.ComputeInstance{
+			InstanceID:   instanceID,
+			InstanceType: instanceType,
+		}
 	}
+
+	//computeInstances, err := u.awsClient.GetComputeInstances()
+	//if err != nil {
+	//	fmt.Printf("failed to describe ec2 instances, %v", err)
+	//	return nil, errors.Wrap(err, "failed to describe ec2 instances")
+	//}
 
 	var unsortedEntries []*InstanceEntry
 	var result []InstanceEntry
@@ -133,10 +162,17 @@ func (u *plugin) Check(ctx context.Context, in *proto.CheckRequest, opts ...grpc
 }
 
 func (u *plugin) Configure(ctx context.Context, pluginConfig *proto.PluginConfig, opts ...grpc.CallOption) (*empty.Empty, error) {
-	u.config = pluginConfig
 	//TODO: add here config validation in future
+	u.config = pluginConfig
+
+	nodeAgentClient, err := nodeagent.NewClient(logrus.New())
+	if err != nil {
+		return nil, err
+	}
+	u.nodeAgentClient = nodeAgentClient
+
 	var awsClientConfig = pluginConfig.GetAwsConfig()
-	var awsClient, err = aws.NewClient(awsClientConfig)
+	awsClient, err := aws.NewClient(awsClientConfig)
 	if err != nil {
 		return nil, err
 	}

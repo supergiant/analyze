@@ -4,11 +4,11 @@ import (
 	"strings"
 
 	"github.com/pkg/errors"
-	"k8s.io/client-go/rest"
 	corev1api "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
 	corev1 "k8s.io/client-go/kubernetes/typed/core/v1"
+	"k8s.io/client-go/rest"
 )
 
 type Client struct {
@@ -53,7 +53,7 @@ func (c *Client) GetNodeResourceRequirements() (map[string]*NodeResourceRequirem
 
 		nodeResourceRequirements, err := getNodeResourceRequirements(node, nonTerminatedPodsList.Items)
 		if err != nil {
-			return nil , err
+			return nil, err
 		}
 
 		instanceEntries[nodeResourceRequirements.InstanceID] = nodeResourceRequirements
@@ -86,6 +86,15 @@ func getNodeResourceRequirements(node corev1api.Node, pods []corev1api.Pod) (*No
 	nodeResourceRequirements.AllocatableMemory = allocatable.Memory().Value()
 
 	nodeResourceRequirements.RefreshTotals()
+
+	var internalIp string
+	for _, address := range node.Status.Addresses {
+		if address.Type == corev1api.NodeInternalIP {
+			internalIp = address.Address
+		}
+	}
+
+	nodeResourceRequirements.internalIPAddress = internalIp
 
 	return nodeResourceRequirements, nil
 }

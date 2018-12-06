@@ -1,18 +1,18 @@
 package main
 
 import (
+	"log"
+	"net"
+	"net/http"
+	"os"
+	"strings"
+
 	"github.com/aws/aws-sdk-go-v2/aws/ec2metadata"
 	"github.com/aws/aws-sdk-go-v2/aws/external"
 	"github.com/gorilla/mux"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
-	"log"
-	"net"
-	"net/http"
-	"os"
-	"strconv"
-	"strings"
 )
 
 func main() {
@@ -23,12 +23,23 @@ func main() {
 		SilenceUsage: true,
 	}
 
+	command.PersistentFlags().StringP(
+		"api-port",
+		"p",
+		"9292",
+		"tcp port where node agent API is serving")
+
 	if err := command.Execute(); err != nil {
 		log.Fatalf("\n%v\n", err)
 	}
 }
 
-func runCommand(_ *cobra.Command, _ []string) error {
+func runCommand(cmd *cobra.Command, _ []string) error {
+
+	apiPort, err := cmd.Flags().GetString("api-port")
+	if err != nil {
+		return errors.Wrap(err, "unable to get config flag api-port")
+	}
 
 	logger := logrus.New()
 
@@ -36,9 +47,6 @@ func runCommand(_ *cobra.Command, _ []string) error {
 	if err != nil {
 		logger.Fatal("unable to load SDK config, " + err.Error())
 	}
-
-	//// Set the AWS Region that the service clients should use
-	//cfg.Region = endpoints.UsWest2RegionID
 
 	var ec2MetadataService = ec2metadata.New(cfg)
 
@@ -62,8 +70,7 @@ func runCommand(_ *cobra.Command, _ []string) error {
 	awsAPI := router.PathPrefix("/aws").Subrouter()
 	httpServer.Handler = awsAPI
 
-
-	awsAPI.HandleFunc("/meta-data/{path}", func (ec2MetadataService *ec2metadata.EC2Metadata, logger logrus.FieldLogger) func(http.ResponseWriter, *http.Request) {
+	awsAPI.HandleFunc("/meta-data/{path}", func(ec2MetadataService *ec2metadata.EC2Metadata, logger logrus.FieldLogger) func(http.ResponseWriter, *http.Request) {
 		return func(res http.ResponseWriter, req *http.Request) {
 			vars := mux.Vars(req)
 
@@ -76,7 +83,7 @@ func runCommand(_ *cobra.Command, _ []string) error {
 		}
 	}(ec2MetadataService, logger)).Methods(http.MethodGet)
 
-	awsAPI.HandleFunc("/dynamic/{path}", func (ec2MetadataService *ec2metadata.EC2Metadata, logger logrus.FieldLogger) func(http.ResponseWriter, *http.Request) {
+	awsAPI.HandleFunc("/dynamic/{path}", func(ec2MetadataService *ec2metadata.EC2Metadata, logger logrus.FieldLogger) func(http.ResponseWriter, *http.Request) {
 		return func(res http.ResponseWriter, req *http.Request) {
 			vars := mux.Vars(req)
 
@@ -89,7 +96,7 @@ func runCommand(_ *cobra.Command, _ []string) error {
 		}
 	}(ec2MetadataService, logger)).Methods(http.MethodGet)
 
-	awsAPI.HandleFunc("/user-data", func (ec2MetadataService *ec2metadata.EC2Metadata, logger logrus.FieldLogger) func(http.ResponseWriter, *http.Request) {
+	awsAPI.HandleFunc("/user-data", func(ec2MetadataService *ec2metadata.EC2Metadata, logger logrus.FieldLogger) func(http.ResponseWriter, *http.Request) {
 		return func(res http.ResponseWriter, req *http.Request) {
 			result, err := ec2MetadataService.GetUserData()
 			if err != nil {
@@ -99,7 +106,7 @@ func runCommand(_ *cobra.Command, _ []string) error {
 		}
 	}(ec2MetadataService, logger)).Methods(http.MethodGet)
 
-	listener, err := net.Listen("tcp", ":"+strconv.Itoa(9292))
+	listener, err := net.Listen("tcp", ":"+apiPort)
 	if err != nil {
 		return err
 	}

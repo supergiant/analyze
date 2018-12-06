@@ -2,7 +2,6 @@ package plugin
 
 import (
 	"context"
-	"strings"
 	"time"
 
 	"github.com/golang/protobuf/ptypes/empty"
@@ -63,18 +62,6 @@ func (c Config) Validate() error {
 
 	if c.ProviderType != AWSCloudProviderType {
 		return errors.New("Currently only AWS is implemented")
-	}
-
-	if strings.TrimSpace(c.AWSAccessKeyID) == "" {
-		return errors.New("AWS AccessKeyID was not configured")
-	}
-
-	if strings.TrimSpace(c.AWSSecretAccessKey) == "" {
-		return errors.New("AWS SecretAccessKey was not configured")
-	}
-
-	if strings.TrimSpace(c.AWSRegion) == "" {
-		return errors.New("AWS region was not configured")
 	}
 
 	return nil

@@ -22,6 +22,8 @@ type NodeResourceRequirements struct {
 	fractionCpuLimits    float64
 	fractionMemoryReqs   float64
 	fractionMemoryLimits float64
+
+	internalIPAddress string
 }
 
 type PodResourceRequirements struct {
@@ -112,4 +114,8 @@ func (n *NodeResourceRequirements) MarshalJSON() ([]byte, error) {
 		"fractionMemoryRequests":   n.fractionMemoryReqs,
 		"fractionMemoryLimits":     n.fractionMemoryLimits,
 	})
+}
+
+func (n *NodeResourceRequirements) IPAddress() string {
+	return n.internalIPAddress
 }
