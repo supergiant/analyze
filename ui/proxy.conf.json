@@ -1,6 +1,6 @@
 {
   "/api": {
-    "target": "http://ec2-34-249-11-236.eu-west-1.compute.amazonaws.com:31834",
+    "target": "http://54.183.122.86:32291",
     "secure": false
   }
 }

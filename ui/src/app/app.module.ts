@@ -1,17 +1,32 @@
-import {Compiler, CompilerFactory, CUSTOM_ELEMENTS_SCHEMA, NgModule} from '@angular/core';
+import { CUSTOM_ELEMENTS_SCHEMA, NgModule, APP_INITIALIZER } from '@angular/core';
 import { CommonModule } from '@angular/common';
 
 import { AppRoutingModule }        from './app-routing.module';
-import { AppComponent }            from 'src/app/app.component';
+import { AppComponent }            from './app.component';
 import { CoreModule }              from './core/core.module';
-import { SharedModule }            from './shared/shared.module';
+import { HttpClientModule } from '@angular/common/http';
 import { BrowserAnimationsModule } from "@angular/platform-browser/animations";
+import { PluginsService } from "./shared/services/plugins.service";
+import { CeRegisterService } from "./shared/services/ce-register.service";
 
-export function createCompiler(fn: CompilerFactory): Compiler {
-  return fn.createCompiler();
+
+export function startupServiceFactory(pluginsService: PluginsService): Function {
+  return () => {
+    return pluginsService.refreshAll();
+  };
 }
 
 @NgModule({
+  providers: [
+    PluginsService,
+    CeRegisterService,
+    {
+      provide: APP_INITIALIZER,
+      useFactory: startupServiceFactory,
+      multi: true,
+      deps: [PluginsService]
+    },
+  ],
   declarations: [
     AppComponent,
   ],
@@ -19,8 +34,8 @@ export function createCompiler(fn: CompilerFactory): Compiler {
     CommonModule,
     AppRoutingModule,
     CoreModule,
-    SharedModule,
     BrowserAnimationsModule,
+    HttpClientModule,
   ],
   bootstrap: [AppComponent],
   schemas: [

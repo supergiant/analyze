@@ -1,7 +1,13 @@
-import { Component, OnInit, ViewEncapsulation } from '@angular/core';
+import { Component, AfterViewInit, ViewEncapsulation, ElementRef } from '@angular/core';
 import { HttpClient }                           from "@angular/common/http";
 import { map }                                  from "rxjs/operators";
 import { Observable }                           from "rxjs";
+
+import { Plugin } from 'src/app/models/plugin';
+import { PluginsService } from 'src/app/shared/services/plugins.service';
+import { CeRegisterService } from "../shared/services/ce-register.service";
+import { CustomElementsService } from "../shared/services/custom-elements.service";
+import { CeCacheService } from "../shared/services/ce-cache.service";
 
 @Component({
   selector: 'app-checks',
@@ -9,36 +15,31 @@ import { Observable }                           from "rxjs";
   styleUrls: ['./checks.component.scss'],
   encapsulation: ViewEncapsulation.None,
 })
-export class ChecksComponent implements OnInit {
+export class ChecksComponent implements AfterViewInit {
 
-  checks$: Observable<any[]>;
-
-  readonly IS_NOT_SET_MSG: string = 'Is not set';
+  private ceLoadedEvents$: Observable<CustomEvent>;
+  private registeredCEs: Map<string, string>;
 
   constructor(
     private http: HttpClient,
-  ) {
-  }
+    private pluginsService: PluginsService,
+    private ceRegisterService: CeRegisterService,
+    private customElService: CustomElementsService,
+    private elRef: ElementRef,
+    private ceCache: CeCacheService
+  ) { this.registeredCEs = ceCache.getAllRegisteredCEs(); }
 
-  ngOnInit() {
-    const apiV1Check = '/api/v1/checks';
-    const mapJson = map((checks: any[]) => checks.map(check => {
-      try {
-        const description = JSON.parse(check.description);
-        return {
-          ...check, description
-        }
-      } catch (e) {
-        //  is not json
-        return check;
+  ngAfterViewInit() {
+    const container = this.elRef.nativeElement.tagName.toLowerCase()
+
+    this.pluginsService.getAll().map((plugin: Plugin) => {
+      const entrypoint =  plugin.checkComponentEntryPoint;
+      if (!this.registeredCEs.has(entrypoint)) {
+        this.ceRegisterService.registerCe(entrypoint, container);
+      } else {
+        const customEl = this.customElService.createCustomElement(this.registeredCEs.get(entrypoint))
+        this.customElService.mountCustomElement(container, customEl);
       }
-    }));
-    this.checks$ = this.http.get(apiV1Check).pipe(
-      mapJson,
-    );
-  }
-
-  isObject(val) {
-    return typeof val === 'object';
+    });
   }
 }

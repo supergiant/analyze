@@ -12,8 +12,8 @@ const routes: Routes = [
     loadChildren: './checks/checks.module#ChecksModule'
   },
   {
-    path: 'plugins',
-    loadChildren: './plugins/plugins.module#PluginsModule'
+    path: 'settings',
+    loadChildren: './settings/settings.module#SettingsModule'
   },
   {
     path: '**',
