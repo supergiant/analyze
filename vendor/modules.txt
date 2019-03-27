@@ -86,9 +86,9 @@ github.com/gogo/protobuf/protoc-gen-gogo/descriptor
 github.com/golang/glog
 # github.com/golang/protobuf v1.2.0
 github.com/golang/protobuf/ptypes
-github.com/golang/protobuf/ptypes/any
 github.com/golang/protobuf/ptypes/empty
 github.com/golang/protobuf/proto
+github.com/golang/protobuf/ptypes/any
 github.com/golang/protobuf/ptypes/duration
 github.com/golang/protobuf/ptypes/timestamp
 # github.com/google/btree v0.0.0-20180813153112-4030bb1f1f0c
