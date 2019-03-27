@@ -1,9 +1,10 @@
 import { Injectable } from '@angular/core';
 import { fromEvent, fromEventPattern, Observable } from "rxjs";
-import { publish } from "rxjs/operators";
+import { publish, single } from "rxjs/operators";
 import { CELoadedEvent, EventType } from "../../models/events";
 import { CustomElementsService } from "src/app/shared/services/custom-elements.service";
 import { CeCacheService } from "src/app/shared/services/ce-cache.service";
+import { environment } from 'src/environments/environment';
 
 @Injectable()
 export class CeRegisterService {
@@ -16,6 +17,12 @@ export class CeRegisterService {
     this.bus = document.querySelector<Element>('head');
 
     this.ceLoadedEvents$ = fromEventPattern(this.addHandler.bind(this), this.removeHandler.bind(this));
+
+    // this.test();
+  }
+
+  async test() {
+    await console.log(this.ceLoadedEvents$.toPromise);
   }
 
   private addHandler(handler) {
@@ -26,16 +33,17 @@ export class CeRegisterService {
     this.bus.removeEventListener(EventType.CE_LOADED_EVENT, handler);
   }
 
-  public registerCe(componentEntryPoint: string, container: string) {
+  public registerAndMountCe(componentEntryPoint: string, containerSelector: string) {
+    // TODO: this fn currently has too many responsibilities (register w/ DOM, cache, create and mount ce)
+    // need to extract these into a synchronous workflow
     this.ceLoadedEvents$.subscribe((event: CustomEvent) => {
-      const selector = event.detail.selector;
-      const customEl = this.customElService.createCustomElement(selector)
-      this.ceCache.addRegisteredCE(componentEntryPoint, selector);
-      this.customElService.mountCustomElement(container, customEl);
+      const ceSelector = event.detail.selector;
+      this.ceCache.addRegisteredCE(componentEntryPoint, ceSelector)
+      this.customElService.mountCustomElement(containerSelector, ceSelector)
     });
 
     const script = document.createElement('script');
-    script.src = 'http://54.183.122.86:32291' + componentEntryPoint;
+    script.src = environment.hostUrl + componentEntryPoint;
 
     this.bus.appendChild(script);
   }

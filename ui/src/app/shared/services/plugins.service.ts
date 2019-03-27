@@ -11,7 +11,6 @@ export class PluginsService {
   ) {
   }
 
-
   //TODO rewrite
   public async refreshAll() {
     await this.http.get<Plugin[]>('/api/v1/plugins').toPromise().then(

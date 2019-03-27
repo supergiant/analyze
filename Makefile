@@ -112,4 +112,4 @@ gen-assets:
 		--mount type=bind,src=${CURRENT_DIR},dst=/tmp \
 		-w /usr/src/app node:10-alpine \
 		sh -c "cp -a /tmp/ui/. /usr/src/app && ls -la && npm i && npm run build && cp -a /usr/src/app/dist/. /tmp/asset/ui"
-	cd ${CURRENT_DIR}/asset && go generate
+	cd ${CURRENT_DIR}/asset && go generate -mod=vendor

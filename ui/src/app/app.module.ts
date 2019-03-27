@@ -8,6 +8,7 @@ import { HttpClientModule } from '@angular/common/http';
 import { BrowserAnimationsModule } from "@angular/platform-browser/animations";
 import { PluginsService } from "./shared/services/plugins.service";
 import { CeRegisterService } from "./shared/services/ce-register.service";
+import { BrowserModule } from "@angular/platform-browser";
 
 
 export function startupServiceFactory(pluginsService: PluginsService): Function {
@@ -36,6 +37,7 @@ export function startupServiceFactory(pluginsService: PluginsService): Function 
     CoreModule,
     BrowserAnimationsModule,
     HttpClientModule,
+    BrowserModule,
   ],
   bootstrap: [AppComponent],
   schemas: [

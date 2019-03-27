@@ -9,7 +9,6 @@ import (
 
 	"github.com/go-openapi/strfmt"
 	"github.com/golang/protobuf/ptypes"
-	"github.com/golang/protobuf/ptypes/any"
 	"github.com/golang/protobuf/ptypes/empty"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
@@ -184,6 +183,7 @@ func (pc *PluginController) registerPlugin(pluginEntry *models.Plugin) error {
 	pc.logger.Infof("plugin info loaded %+v", *pluginInfo)
 
 	rawConfig, err := pc.stor.Get(ctx, models.PluginConfigPrefix, pluginInfo.Id)
+	pc.logger.Infof("plugin raw config %s, error: %+v", rawConfig, err)
 	if err != nil && err != storage.ErrNotFound {
 		return errors.Errorf("unable to load plugin config, id: %v, error %v", pluginEntry.ID, err)
 	}
@@ -192,11 +192,38 @@ func (pc *PluginController) registerPlugin(pluginEntry *models.Plugin) error {
 		return errors.Errorf("unable to register plugin, without default config, id: %v", pluginEntry.ID)
 	}
 
+	// when plugin is just installed we need to take default config from plugin and save it
 	if err == storage.ErrNotFound {
 		pluginConfig = pluginInfo.DefaultConfig
 		pc.logger.Infof("plugin %s config not found, default config %+v", pluginInfo.Id, pluginInfo.DefaultConfig)
+
+		var pluginSpecificConfig = make(map[string]interface{})
+		marshalErr := json.Unmarshal(pluginInfo.DefaultConfig.PluginSpecificConfig, &pluginSpecificConfig)
+		if marshalErr != nil {
+			return errors.Errorf("unable to marshal plugin default config, id: %v, error %v", pluginEntry.ID, marshalErr)
+		}
+		pc.logger.Infof(
+			"plugin %s specific config unmarshalled %+v",
+			pluginInfo.Id,
+			pluginSpecificConfig,
+		)
+
+		pluginConfigEntry := &models.PluginConfig{
+			ExecutionInterval:    pluginConfig.ExecutionInterval.Seconds,
+			PluginSpecificConfig: &pluginSpecificConfig,
+		}
+
+		b, marshalErr := pluginConfigEntry.MarshalBinary()
+		if marshalErr != nil {
+			return errors.Errorf("unable to marshal plugin default config, id: %v, error %v", pluginEntry.ID, marshalErr)
+		}
+		putError := pc.stor.Put(ctx, models.PluginConfigPrefix, pluginInfo.Id, msg(b))
+		if putError != nil {
+			return errors.Errorf("unable to store plugin default config, id: %v, error %v", pluginEntry.ID, putError)
+		}
 	}
 
+	// true means plugin config has been read from storage and we need to apply it (case when analyze core was rebooted)
 	if pluginConfig == nil {
 		pluginConfigEntry := &models.PluginConfig{}
 		err = pluginConfigEntry.UnmarshalBinary(rawConfig.Payload())
@@ -211,11 +238,8 @@ func (pc *PluginController) registerPlugin(pluginEntry *models.Plugin) error {
 
 		// TODO: populate other properties
 		pluginConfig = &proto.PluginConfig{
-			ExecutionInterval: ptypes.DurationProto(time.Second * time.Duration(pluginConfigEntry.ExecutionInterval)),
-			PluginSpecificConfig: &any.Any{
-				TypeUrl: "io.supergiant.analyze-plugin-sunsetting.plugin-config",
-				Value:   bytes,
-			},
+			ExecutionInterval:    ptypes.DurationProto(time.Second * time.Duration(pluginConfigEntry.ExecutionInterval)),
+			PluginSpecificConfig: bytes,
 		}
 	}
 

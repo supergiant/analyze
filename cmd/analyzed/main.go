@@ -136,6 +136,15 @@ func main() {
 		etcdStorage,
 		log.WithField("handler", "UnregisterPluginHandler"),
 	)
+	analyzeAPI.GetPluginConfigHandler = handlers.NewPluginConfigHandler(
+		etcdStorage,
+		log.WithField("handler", "PluginConfigHandler"),
+	)
+
+	analyzeAPI.ReplacePluginConfigHandler = handlers.NewReplacePluginConfigHandler(
+		etcdStorage,
+		log.WithField("handler", "ReplacePluginConfigHandler"),
+	)
 
 	err = analyzeAPI.Validate()
 	if err != nil {
@@ -225,6 +234,11 @@ func uiMiddleware(handler http.Handler) http.Handler {
 func newProxyMiddleware(proxySet *proxy.Set, logger logrus.FieldLogger) func(handler http.Handler) http.Handler {
 	return func(handler http.Handler) http.Handler {
 		return http.HandlerFunc(func(res http.ResponseWriter, req *http.Request) {
+			if strings.HasPrefix(req.URL.Path, "/api/v1") {
+				handler.ServeHTTP(res, req)
+				return
+			}
+
 			var targetProxy *httputil.ReverseProxy
 			for id, proxy := range proxySet.GetProxies() {
 				if strings.Contains(req.URL.Path, id) {

@@ -35,7 +35,8 @@ message PluginInfo {
 // AWS credentials need to be configured
 message PluginConfig {
     google.protobuf.Duration execution_interval = 1;
-    google.protobuf.Any plugin_specific_config = 2;
+    // must be valid JSON
+    bytes plugin_specific_config = 2;
 
     CloudProviderType provider_type = 3;
     oneof cloud_provider_config {

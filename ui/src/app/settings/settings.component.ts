@@ -30,12 +30,13 @@ export class SettingsComponent {
 
     this.pluginsService.getAll().map((plugin: Plugin) => {
       const entrypoint = plugin.settingsComponentEntryPoint;
+
       if (!this.registeredCEs.has(entrypoint)) {
-        this.ceRegisterService.registerCe(entrypoint, container);
+        this.ceRegisterService.registerAndMountCe(entrypoint, container)
       } else {
-        const customEl = this.customElService.createCustomElement(this.registeredCEs.get(entrypoint))
-        this.customElService.mountCustomElement(container, customEl)
+        this.customElService.mountCustomElement(container, this.registeredCEs.get(entrypoint));
       }
+
     });
   }
 }

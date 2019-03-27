@@ -33,13 +33,14 @@ export class ChecksComponent implements AfterViewInit {
     const container = this.elRef.nativeElement.tagName.toLowerCase()
 
     this.pluginsService.getAll().map((plugin: Plugin) => {
-      const entrypoint =  plugin.checkComponentEntryPoint;
+      const entrypoint = plugin.checkComponentEntryPoint;
+
       if (!this.registeredCEs.has(entrypoint)) {
-        this.ceRegisterService.registerCe(entrypoint, container);
+        this.ceRegisterService.registerAndMountCe(entrypoint, container)
       } else {
-        const customEl = this.customElService.createCustomElement(this.registeredCEs.get(entrypoint))
-        this.customElService.mountCustomElement(container, customEl);
+        this.customElService.mountCustomElement(container, this.registeredCEs.get(entrypoint));
       }
+
     });
   }
 }

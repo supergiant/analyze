@@ -7,12 +7,8 @@ export class CustomElementsService {
 
   constructor() { }
 
-  public createCustomElement(selector): HTMLElement {
-    const customEl: HTMLElement = document.createElement(selector);
-    return customEl
-  }
-
-  public mountCustomElement(containerSelector, customEl) {
+  public mountCustomElement(containerSelector, CESelector) {
+    const customEl: HTMLElement = document.createElement(CESelector);
     const container = document.querySelector(containerSelector);
     container.appendChild(customEl);
   }

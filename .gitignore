@@ -1,3 +1,5 @@
 .idea
 .jscpd
 asset/assets_vfsdata.go
+asset/ui/*
+ui/node_modules/

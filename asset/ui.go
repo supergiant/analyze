@@ -3,10 +3,10 @@
 package asset
 
 import (
-	"github.com/shurcooL/httpfs/union"
 	"net/http"
-)
 
+	"github.com/shurcooL/httpfs/union"
+)
 
 var Assets http.FileSystem = union.New(map[string]http.FileSystem{
 	"/ui":      http.Dir("./ui"),
