@@ -1,10 +1,10 @@
-import { Component, AfterViewInit, OnDestroy, ViewEncapsulation, ElementRef } from '@angular/core';
+import { Component, AfterViewInit, ViewEncapsulation, ElementRef } from '@angular/core';
 import { HttpClient }                           from "@angular/common/http";
 import { map, takeUntil }                       from "rxjs/operators";
-import { Observable, Subject }                  from "rxjs";
+import { Observable }                           from "rxjs";
 
 import { Plugin } from 'src/app/models/plugin';
-import { Check } from 'src/app/models/Check';
+import { Check } from 'src/app/models/check';
 import { PluginsService } from 'src/app/shared/services/plugins.service';
 import { CeRegisterService } from "../shared/services/ce-register.service";
 import { CustomElementsService } from "../shared/services/custom-elements.service";
@@ -16,13 +16,12 @@ import { CeCacheService } from "../shared/services/ce-cache.service";
   styleUrls: ['./checks.component.scss'],
   encapsulation: ViewEncapsulation.None,
 })
-export class ChecksComponent implements AfterViewInit, OnDestroy {
+export class ChecksComponent implements AfterViewInit {
 
   private ceLoadedEvents$: Observable<CustomEvent>;
   private registeredCEs: Map<string, string>;
-  private readonly onDestroy = new Subject<void>();
-  private DOMWatcher: MutationObserver;
   private container: string;
+  private checks$: Observable<Object>;
 
   constructor(
     private http: HttpClient,
@@ -34,44 +33,30 @@ export class ChecksComponent implements AfterViewInit, OnDestroy {
   ) {
       this.registeredCEs = ceCache.getAllRegisteredCEs();
       this.ceLoadedEvents$ = this.ceRegisterService.getAllCeLoadedEvents();
+      this.checks$ = this.pluginsService.getChecks().pipe(
+        map((checks: Check[]) => {
+          return checks.reduce((obj, ck) => Object.assign({[ck.id]: ck}, obj), {})
+        })
+      );
     }
 
   ngAfterViewInit() {
     this.container = this.elRef.nativeElement.tagName.toLowerCase();
 
-    // TODO: how can we do this without DOM?
-    this.DOMWatcher = new MutationObserver(this.populateChecks.bind(this));
-    this.DOMWatcher.observe(document.querySelector(this.container), { attributes: false, childList: true, subtree: false })
+    this.checks$.subscribe(
+      checks => {
+        this.pluginsService.getAll().map((plugin: Plugin) => {
+          const entrypoint = plugin.checkComponentEntryPoint;
+          const checkData = checks[plugin.id];
 
-    this.pluginsService.getAll().map((plugin: Plugin) => {
-      const entrypoint = plugin.checkComponentEntryPoint;
-
-      if (!this.registeredCEs.has(plugin.id)) {
-        this.ceRegisterService.registerAndMountCe(entrypoint, plugin.id, this.container);
-      } else {
-        this.customElService.mountCustomElement(this.container, this.registeredCEs.get(plugin.id));
-      }
-    });
-  }
-
-  ngOnDestroy() {
-    this.onDestroy.next();
-    this.DOMWatcher.disconnect();
-  }
-
-  populateChecks(mutationsList, observer) {
-    // TODO: can we make this pure?
-    if (document.querySelector(this.container).childElementCount === this.pluginsService.getAll().length) {
-      this.pluginsService.getChecks().subscribe(
-        (checks: Check[]) => {
-          checks.forEach(c => {
-            const selector = this.registeredCEs.get(c.id);
-            const el = document.querySelector(selector);
-            el.setAttribute("check-result", JSON.stringify(c));
-          })
-        },
-        err => console.log(err)
-      )
-    }
+          if (!this.registeredCEs.has(plugin.id)) {
+            this.ceRegisterService.registerAndMountCe(entrypoint, plugin.id, this.container, "check-result", checkData);
+          } else {
+            this.customElService.mountCustomElement(this.container, this.registeredCEs.get(plugin.id), "check-result", checkData);
+          }
+        });
+      },
+      err => console.log(err)
+    )
   }
 }
