@@ -26,4 +26,8 @@ export class PluginsService {
   public getAll(): Plugin[] {
     return this.installedPlugins
   }
+
+  public getChecks() {
+    return this.http.get('api/v1/checks')
+  }
 }

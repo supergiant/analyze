@@ -9,12 +9,12 @@ export class CeCacheService {
 
   constructor() { this.registeredCEs = new Map<string, string>(); }
 
-  addRegisteredCE(entrypoint, selector) {
-    this.registeredCEs.set(entrypoint, selector);
+  addRegisteredCE(plugId, selector) {
+    this.registeredCEs.set(plugId, selector);
   }
 
-  deleteRegisteredCE(entrypoint) {
-    this.registeredCEs.delete(entrypoint);
+  deleteRegisteredCE(plugId) {
+    this.registeredCEs.delete(plugId);
   }
 
   getAllRegisteredCEs() {

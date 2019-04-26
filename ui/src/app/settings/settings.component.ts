@@ -31,10 +31,10 @@ export class SettingsComponent {
     this.pluginsService.getAll().map((plugin: Plugin) => {
       const entrypoint = plugin.settingsComponentEntryPoint;
 
-      if (!this.registeredCEs.has(entrypoint)) {
-        this.ceRegisterService.registerAndMountCe(entrypoint, container)
+      if (!this.registeredCEs.has(plugin.id)) {
+        this.ceRegisterService.registerAndMountCe(entrypoint, plugin.id, container)
       } else {
-        this.customElService.mountCustomElement(container, this.registeredCEs.get(entrypoint));
+        this.customElService.mountCustomElement(container, this.registeredCEs.get(plugin.id));
       }
 
     });
