@@ -4,7 +4,7 @@
 
 export const environment = {
   production: false,
-  hostUrl: 'http://54.183.122.86:30710'
+  hostUrl: 'http://ec2-3-90-39-247.compute-1.amazonaws.com:32713'
 };
 
 /*

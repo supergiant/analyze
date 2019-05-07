@@ -30,4 +30,12 @@ export class PluginsService {
   public getChecks() {
     return this.http.get('api/v1/checks')
   }
+
+  public getPluginConfig(pluginId: string) {
+    return this.http.get('api/v1/plugins/' + pluginId + '/config');
+  }
+
+  public updateConfig(pluginId, config) {
+    return this.http.patch('api/v1/plugins/' + pluginId + '/config', config)
+  }
 }

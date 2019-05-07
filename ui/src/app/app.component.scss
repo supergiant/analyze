@@ -6,6 +6,8 @@
   height: 100%;
 
   .content {
+    display: flex;
+    flex-direction: column;
     max-height: 100vh -300px;
     overflow-y: scroll;
   }

@@ -1,7 +1,7 @@
-import { Component, AfterViewInit, ViewEncapsulation, ElementRef } from '@angular/core';
+import { Component, AfterViewInit, OnDestroy, ViewEncapsulation, ElementRef } from '@angular/core';
 import { HttpClient }                           from "@angular/common/http";
-import { map, takeUntil }                       from "rxjs/operators";
-import { Observable }                           from "rxjs";
+import { map, takeUntil, mergeMap }                       from "rxjs/operators";
+import { Observable, Subject, concat, forkJoin }                           from "rxjs";
 
 import { Plugin } from 'src/app/models/plugin';
 import { Check } from 'src/app/models/check';
@@ -16,12 +16,15 @@ import { CeCacheService } from "../shared/services/ce-cache.service";
   styleUrls: ['./checks.component.scss'],
   encapsulation: ViewEncapsulation.None,
 })
-export class ChecksComponent implements AfterViewInit {
+export class ChecksComponent implements AfterViewInit, OnDestroy {
 
   private ceLoadedEvents$: Observable<CustomEvent>;
-  private registeredCEs: Map<string, string>;
+  private registeredCEs: Map<string, {[key: string]: any}>;
   private container: string;
-  private checks$: Observable<Object>;
+  private getChecks$: Observable<Object>;
+  private checks: {};
+  private ngUnsubscribe = new Subject();
+  private lateChecks$: any;
 
   constructor(
     private http: HttpClient,
@@ -33,30 +36,55 @@ export class ChecksComponent implements AfterViewInit {
   ) {
       this.registeredCEs = ceCache.getAllRegisteredCEs();
       this.ceLoadedEvents$ = this.ceRegisterService.getAllCeLoadedEvents();
-      this.checks$ = this.pluginsService.getChecks().pipe(
+      this.getChecks$ = this.pluginsService.getChecks().pipe(
         map((checks: Check[]) => {
           return checks.reduce((obj, ck) => Object.assign({[ck.id]: ck}, obj), {})
-        })
+        }),
+        takeUntil(this.ngUnsubscribe)
       );
     }
 
   ngAfterViewInit() {
     this.container = this.elRef.nativeElement.tagName.toLowerCase();
 
-    this.checks$.subscribe(
+    this.getChecks$.subscribe(
       checks => {
+        // TODO: hack until we can figure out how to combine getChecks and ceLoadedEvents
+        this.checks = checks;
         this.pluginsService.getAll().map((plugin: Plugin) => {
+          const pluginId = plugin.id;
           const entrypoint = plugin.checkComponentEntryPoint;
           const checkData = checks[plugin.id];
 
-          if (!this.registeredCEs.has(plugin.id)) {
-            this.ceRegisterService.registerAndMountCe(entrypoint, plugin.id, this.container, "check-result", checkData);
+          if (this.registeredCEs.get(pluginId)) {
+            if (this.registeredCEs.get(pluginId).hasOwnProperty("check")) {
+              this.customElService.mountCustomElement(this.container, this.registeredCEs.get(pluginId).check, "check-result", checkData);
+            } else { this.ceRegisterService.registerCe(entrypoint); }
           } else {
-            this.customElService.mountCustomElement(this.container, this.registeredCEs.get(plugin.id), "check-result", checkData);
+            this.ceRegisterService.registerCe(entrypoint);
           }
         });
       },
       err => console.log(err)
     )
+
+    this.ceLoadedEvents$
+      .pipe(
+        takeUntil(this.ngUnsubscribe)
+      )
+      .subscribe((event: CustomEvent) => {
+        const ceSelector = event.detail.selector;
+        // TODO: we need to swap this out for a pluginId property (here and in plugin)
+        const pluginId = event.detail.pluginName;
+        const checkData = this.checks[event.detail.pluginName]
+        this.ceCache.addRegisteredCE(pluginId, ceSelector, "check");
+        this.customElService.mountCustomElement(this.container, ceSelector, "check-result", checkData);
+      }
+    )
+  }
+
+  ngOnDestroy() {
+    this.ngUnsubscribe.next();
+    this.ngUnsubscribe.complete();
   }
 }

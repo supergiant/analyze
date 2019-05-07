@@ -5,12 +5,21 @@ import { Injectable } from '@angular/core';
 })
 export class CeCacheService {
 
-  registeredCEs: Map<string, string>;
+  registeredCEs: Map<string, {[key: string]: any}>;
 
-  constructor() { this.registeredCEs = new Map<string, string>(); }
+  constructor() { this.registeredCEs = new Map(); }
 
-  addRegisteredCE(plugId, selector) {
-    this.registeredCEs.set(plugId, selector);
+  addRegisteredCE(pluginId, selector, key) {
+    let val;
+
+    if (this.registeredCEs.get(pluginId)) {
+      val = this.registeredCEs.get(pluginId);
+      val[key] = selector;
+    } else {
+      val = {[key]: selector}
+    }
+
+    this.registeredCEs.set(pluginId, val);
   }
 
   deleteRegisteredCE(plugId) {
