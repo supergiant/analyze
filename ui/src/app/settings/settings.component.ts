@@ -34,25 +34,17 @@ export class SettingsComponent implements AfterViewInit, OnDestroy {
     this.ceLoadedEvents$ = this.ceRegisterService.getAllCeLoadedEvents();
    }
 
-  getKeyFromValue(map, value) {
-    for (let [k, v] of map) {
-      if (v.settings === value)
-        return k;
-    }
-  }
-
   ngAfterViewInit() {
     this.container = this.elRef.nativeElement.tagName.toLowerCase()
     this.elRef.nativeElement.addEventListener('ConfigUpdate',
       e => {
         // temporary
-        const pluginId = this.getKeyFromValue(this.registeredCEs, e.target.tagName.toLowerCase());
-        this.pluginsService.updateConfig(pluginId.replace("-settings", ""), e.detail).pipe(
+        this.pluginsService.updateConfig(e.detail.pluginId, e.detail.config).pipe(
           takeUntil(this.ngUnsubscribe),
-          switchMap(res => this.pluginsService.getPluginConfig(pluginId.replace("-settings", "")))
+          switchMap(res => this.pluginsService.getPluginConfig(e.detail.pluginId))
         ).subscribe(
           config => {
-            let el = document.querySelector(this.registeredCEs.get(pluginId).settings)
+            let el = document.querySelector(this.registeredCEs.get(e.detail.pluginId).settings)
             el.setAttribute('plugin-config', JSON.stringify(config))
           }
         )
