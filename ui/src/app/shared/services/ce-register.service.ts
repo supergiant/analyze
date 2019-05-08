@@ -6,6 +6,7 @@ import { Check } from "../../models/check";
 import { CustomElementsService } from "src/app/shared/services/custom-elements.service";
 import { CeCacheService } from "src/app/shared/services/ce-cache.service";
 import { environment } from 'src/environments/environment';
+import {  Location } from '@angular/common';
 
 @Injectable()
 export class CeRegisterService {
@@ -14,7 +15,7 @@ export class CeRegisterService {
   readonly bus: Element;
   readonly ceLoadedEvents$: Observable<CustomEvent>;
 
-  constructor(private customElService: CustomElementsService, private ceCache: CeCacheService) {
+  constructor(private customElService: CustomElementsService, private ceCache: CeCacheService, private location: Location) {
     this.bus = document.querySelector<Element>('head');
 
     this.ceLoadedEvents$ = fromEventPattern(this.addHandler.bind(this), this.removeHandler.bind(this));
@@ -30,7 +31,12 @@ export class CeRegisterService {
 
   public registerCe(componentEntryPoint: string) {
     const script = document.createElement('script');
-    script.src = environment.hostUrl + componentEntryPoint;
+    if (!environment.hostUrl) {
+      script.src = this.location.prepareExternalUrl(componentEntryPoint);
+    } else {
+      script.src = environment.hostUrl + componentEntryPoint;
+    }
+    console.log(script.src);
 
     this.bus.appendChild(script);
   }
