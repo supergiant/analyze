@@ -6,7 +6,7 @@
     "start": "ng serve --proxy-config proxy.conf.json",
     "build": "npm run build:dev",
     "build:dev": "ng build --source-map=true --output-path ./dist",
-    "build:prod": "ng build --prod --output-path ./dist",
+    "build:prod": "ng build --prod --source-map=true --output-path ./dist",
     "test": "ng test",
     "lint": "ng lint",
     "e2e": "ng e2e"

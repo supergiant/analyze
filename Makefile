@@ -99,6 +99,10 @@ build-image:
 	docker build -t $(JOB_DOCKER_IMAGE_NAME):$(DOCKER_IMAGE_TAG) -f cmd/analyze-registry-job/Dockerfile .
 	docker tag $(JOB_DOCKER_IMAGE_NAME):$(DOCKER_IMAGE_TAG) $(JOB_DOCKER_IMAGE_NAME):latest
 
+.PHONY: docker-push
+docker-push:
+	./scripts/docker_push.sh
+
 .PHONY: push
 push:
 	docker push $(DOCKER_IMAGE_NAME):$(DOCKER_IMAGE_TAG)
@@ -122,7 +126,7 @@ gen-assets:
 	docker run --rm -it --name supergiant_frontend_builder \
 		--mount type=bind,src=${CURRENT_DIR},dst=/tmp \
 		-w /usr/src/app node:10-alpine \
-		sh -c "cp -a /tmp/ui/. /usr/src/app && ls -la && npm i && npm run build && cp -a /usr/src/app/dist/. /tmp/asset/ui"
+		sh -c "cp -a /tmp/ui/. /usr/src/app && ls -la && npm i && npm run build:prod && cp -a /usr/src/app/dist/. /tmp/asset/ui"
 	cd ${CURRENT_DIR}/asset && go generate -mod=vendor
 
 .PHONY: push-release

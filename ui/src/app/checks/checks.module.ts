@@ -1,5 +1,6 @@
 import { NgModule }     from '@angular/core';
 import { CommonModule } from '@angular/common';
+import {Location, LocationStrategy, PathLocationStrategy} from '@angular/common';
 
 import { ChecksRoutingModule }                                                             from './checks-routing.module';
 import { ChecksComponent }                                                                 from './checks.component';
@@ -8,6 +9,7 @@ import { MatCardModule, MatTabsModule, MatExpansionModule, MatIconModule, MatChi
 
 @NgModule({
   declarations: [ChecksComponent],
+  providers: [Location, {provide: LocationStrategy, useClass: PathLocationStrategy}],
   imports: [
     CommonModule,
     ChecksRoutingModule,
