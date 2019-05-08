@@ -99,6 +99,10 @@ build-image:
 	docker build -t $(JOB_DOCKER_IMAGE_NAME):$(DOCKER_IMAGE_TAG) -f cmd/analyze-registry-job/Dockerfile .
 	docker tag $(JOB_DOCKER_IMAGE_NAME):$(DOCKER_IMAGE_TAG) $(JOB_DOCKER_IMAGE_NAME):latest
 
+.PHONY: docker-push
+docker-push:
+	./scripts/docker_push.sh
+
 .PHONY: push
 push:
 	docker push $(DOCKER_IMAGE_NAME):$(DOCKER_IMAGE_TAG)

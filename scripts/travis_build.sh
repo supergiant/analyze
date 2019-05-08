@@ -38,7 +38,7 @@ elif [[ "$TRAVIS_BRANCH" == *release-* ]]; then
 	# Build docker container
 	make build
 	# Push to Dockerhub
-	make push
+	make docker-push
 # if a push to master happens, tests are only run
 elif [[ "$TRAVIS_BRANCH" == "master" ]]; then
 	echo "master branch - test will only be run"
