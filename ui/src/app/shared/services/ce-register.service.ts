@@ -36,7 +36,6 @@ export class CeRegisterService {
     } else {
       script.src = environment.hostUrl + componentEntryPoint;
     }
-    console.log(script.src);
 
     this.bus.appendChild(script);
   }
