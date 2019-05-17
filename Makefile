@@ -44,13 +44,6 @@ define TOOLS
         	echo "Installing goveralls... into ${GOPATH}/bin"; \
         	GO111MODULE=off go get -u github.com/mattn/goveralls ; \
         fi
-
-        if [ ! -x "`which cover 2>/dev/null`" ]; \
-        then \
-        	echo "goveralls not found."; \
-        	echo "Installing cover... into ${GOPATH}/bin"; \
-        	GO111MODULE=off go get -u golang.org/x/tools/cmd/cover ; \
-        fi
 endef
 
 
